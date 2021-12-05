@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema path="/org/gnome/shell/extensions/nauta-connect/" id="org.gnome.shell.extensions.nauta-connect">
+    <!-- Session Settings -->
+    <key name="session-csrfhw" type="s">
+        <default>""</default>
+    </key>
+    <key name="session-wlanuserip" type="s">
+        <default>""</default>
+    </key>
+    <key name="session-attribute-uuid" type="s">
+        <default>""</default>
+    </key>
+    <key name="session-username" type="s">
+        <default>""</default>
+    </key>
+    <key name="session-connected" type="b">
+        <default>false</default>
+    </key>
+
+    <!-- Extension Settings -->
+    <key name="time-info" type="s">
+        <default>"elapsed"</default>
+    </key>
+    <key name="notifications-limits" type="b">
+        <default>true</default>
+    </key>
+  </schema>
+</schemalist>

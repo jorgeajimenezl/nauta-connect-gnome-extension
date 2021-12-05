@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface domain="nauta-connect">
+    <template class="AccountItemWidget" parent="GtkListBoxRow">
+        <child>
+            <object class="GtkBox">
+                <property name="orientation">horizontal</property>
+                <property name="margin-start">15</property>
+                <property name="margin-end">15</property>
+                <property name="spacing">10</property>
+                <property name="height-request">40</property>
+
+                <child>
+                    <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="valign">center</property>
+                        <property name="spacing">10</property>                         
+                        <property name="hexpand">true</property>
+                        <child>
+                            <object class="GtkImage">
+                                <property name="valign">center</property>
+                                <property name="icon-name">system-users-symbolic</property>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkEntry" id="userEntry">
+                                <property name="valign">center</property>
+                                <property name="placeholder_text" translatable="yes">Username</property>
+                                <property name="sensitive">false</property>
+                                <signal name="notify::text" handler="_onEntryChanged"/>
+                            </object>
+                        </child>
+                        <child>
+                            <object class="GtkPasswordEntry" id="passwordEntry">
+                                <property name="valign">center</property>
+                                <property name="placeholder_text" translatable="yes">Password</property>
+                                <property name="visible">false</property>
+                                <signal name="notify::text" handler="_onEntryChanged"/>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkButton" id="editButton">
+                        <property name="valign">center</property>
+                        <property name="icon-name">document-properties-symbolic</property>
+                        <property name="sensitive">false</property>
+                        <signal name="clicked" handler="_onEdit"/>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkButton">
+                        <property name="valign">center</property>
+                        <property name="icon-name">edit-delete-symbolic</property>
+                        <property name="css-classes">destructive-action</property>
+                        <signal name="clicked" handler="_onDelete"/>
+                    </object>
+                </child>
+            </object>
+        </child>        
+    </template>    
+</interface>

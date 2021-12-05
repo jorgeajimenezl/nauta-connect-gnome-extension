@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface domain="nauta-connect">
+    <template class="AccountsWindow" parent="GtkWindow">
+        <property name="modal">true</property>
+        <property name="title">Accounts</property>
+
+        <child>
+            <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="margin-start">5</property>
+                <property name="margin-end">5</property>
+                <property name="margin-top">5</property>
+                <property name="margin-bottom">5</property>
+                <child>
+                    <object class="GtkFrame">
+                        <property name="vexpand">true</property>
+                        <property name="margin-start">5</property>
+                        <property name="margin-end">5</property>
+                        <property name="margin-top">5</property>
+                        <property name="margin-bottom">5</property>
+
+                        <child>
+                            <object class="GtkListBox" id="accountList">
+                                <child type="placeholder">
+                                    <object class="GtkBox">
+                                        <property name="orientation">vertical</property>
+                                        <property name="valign">center</property>
+                                        <property name="halign">center</property>
+                                        <property name="spacing">15</property>
+                                        <child>
+                                            <object class="GtkImage">
+                                                <property name="icon-name">avatar-default-symbolic</property>
+                                                <property name="pixel-size">70</property>
+                                            </object>                                    
+                                        </child>
+                                        <child>
+                                            <object class="GtkLabel">
+                                                <property name="label" translatable="yes">Use the &lt;b&gt;+&lt;/b&gt; to add your first user</property>
+                                                <property name="use-markup">true</property>
+                                            </object>                                    
+                                        </child>
+                                    </object>
+                                </child>
+                            </object>
+                        </child>
+                    </object>
+                </child>
+            </object>
+        </child>
+    </template>
+</interface>
