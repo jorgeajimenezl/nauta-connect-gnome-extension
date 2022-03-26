@@ -182,7 +182,7 @@ const PrefsWidget = GObject.registerClass({
                     // translator_credits: _('translator-credits'),
                     program_name: _('Nauta Connect'),
                     comments: _('Utility to authenticate in ETECSA network'),
-                    license_type: Gtk.License.MIT_X11,
+                    license_type: Gtk.License.GPL_2_0,
                     // logo_icon_name: Package.name,
                     version: "0.0.1",
         

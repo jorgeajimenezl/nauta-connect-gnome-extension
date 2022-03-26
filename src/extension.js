@@ -104,12 +104,9 @@ const Indicator = GObject.registerClass(
 
                     this.connectMenu.visible = true;
                     this.disconnectButton.visible = false;
-                    this.timerLabel.visible = false;
-                    if (this._refreshTimerId != null) {
-                        Mainloop.source_remove(this._refreshTimerId);
-                        this._refreshTimerId = null;
-                    }
+                    this.timerLabel.visible = false;                    
                     this.totalTime = null;
+                    this._destroyTimer();
                     log('disconnected successful');
                 });
             });
