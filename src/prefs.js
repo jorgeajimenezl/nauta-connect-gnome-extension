@@ -1,4 +1,5 @@
 const {
+    Adw,
     GObject,
     Gtk,
     GLib,
@@ -193,7 +194,7 @@ const PrefsWidget = GObject.registerClass({
             });
 
             headerBar.pack_end(button);
-            this.window.set_titlebar(headerBar);
+            // this.window.set_titlebar(headerBar);
         });
     }
 

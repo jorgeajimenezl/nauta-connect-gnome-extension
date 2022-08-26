@@ -3,7 +3,8 @@
   "description": "Utility to authenticate in ETECSA network",
   "uuid": "nauta-connect@jorgeajimenezl.com",
   "shell-version": [
-    "41"
+    "41",
+    "42"
   ],
   "url": "https://github.com/jorgeajimenezl/nauta-connect-gnome-extension"
 }

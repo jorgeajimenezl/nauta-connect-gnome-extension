@@ -41,6 +41,9 @@ const Indicator = GObject.registerClass(
             this._connect_settings();
             this._create_ui();
             this._populate_users();
+
+            if (this.session.connected)
+                this._setup_time_updater();
         }
 
         _destroyTimer() {
@@ -152,6 +155,28 @@ const Indicator = GObject.registerClass(
             }
         }
 
+        _setup_time_updater() {
+            this.startTime = GLib.get_monotonic_time(); // microseconds                          
+
+            // get remained time
+            this.session.get_remaining_time_async(null, (_, r) => {
+                try {
+                    this.totalTime = this.session.get_remaining_time_finish(r);
+                } catch (e) {
+                    this.totalTime = null;
+                }
+                this.timerLabel.visible = true;
+            });
+
+            if (this.timeInfo != 'none') {
+                // timer update
+                this._refreshTimerId = Mainloop.timeout_add_seconds(1.0, (self) => {
+                    this._update_timer();
+                    return true;
+                });
+            }
+        }
+
         _populate_users() {
             Secret.password_search(Keyring.SEARCH_NETWORK_CREDENTIALS, {
                 'application': 'org.jorgeajimenezl.nauta-connect'
@@ -173,25 +198,7 @@ const Indicator = GObject.registerClass(
                             } 
                             this.connectMenu.visible = false;
                             this.disconnectButton.visible = true;
-                            this.startTime = GLib.get_monotonic_time(); // microseconds                          
-                            
-                            // get remained time
-                            this.session.get_remaining_time_async(null, (_, r) => {
-                                try {
-                                    this.totalTime = this.session.get_remaining_time_finish(r);
-                                } catch (e) {
-                                    this.totalTime = null;
-                                }
-                                this.timerLabel.visible = true;
-                            });
-
-                            if (this.timeInfo != 'none') {
-                                // timer update
-                                this._refreshTimerId = Mainloop.timeout_add_seconds(1.0, (self) => {
-                                    this._update_timer();
-                                    return true;
-                                });
-                            }
+                            this._setup_time_updater();
                         });
                     });
                     this.connectMenu.menu.addMenuItem(item);
