@@ -1,5 +1,4 @@
 const {
-    Adw,
     GObject,
     Gtk,
     GLib,
@@ -11,7 +10,6 @@ const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 const GETTEXT_DOMAIN = 'nauta-connect';
 const UI_FOLDER = Me.dir.get_child('ui');
-const Keyring = Me.imports.keyring;
 
 const _ = ExtensionUtils.gettext;
 
@@ -41,8 +39,15 @@ const AccountItemWidget = GObject.registerClass({
 
     _onEdit() {
         if (!this.ready) {
-            // save
-            Secret.password_store(Keyring.NETWORK_CREDENTIALS, {
+            // Save
+            const schema = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.NetworkCredentials', 
+                Secret.SchemaFlags.DONT_MATCH_NAME, {
+                    "uuid": Secret.SchemaAttributeType.STRING,
+                    "application": Secret.SchemaAttributeType.STRING,
+                }
+            );
+
+            Secret.password_store(schema, {
                 'uuid': this.uuid,
                 'application': 'org.jorgeajimenezl.nauta-connect'
             }, Secret.COLLECTION_DEFAULT, this._userEntry.text, this._passwordEntry.text, null, (_, r) => {
@@ -83,7 +88,14 @@ const AccountItemWidget = GObject.registerClass({
         };
 
         if (this.saved) {
-            Secret.password_clear(Keyring.NETWORK_CREDENTIALS, {
+            const schema = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.NetworkCredentials', 
+                Secret.SchemaFlags.DONT_MATCH_NAME, {
+                    "uuid": Secret.SchemaAttributeType.STRING,
+                    "application": Secret.SchemaAttributeType.STRING,
+                }
+            );
+
+            Secret.password_clear(schema, {
                 'uuid': this.uuid,
                 'application': 'org.jorgeajimenezl.nauta-connect'
             }, null, erase);
@@ -132,7 +144,12 @@ const AccountsWindow = GObject.registerClass({
         this.set_titlebar(headerBar);
 
         // populate the list
-        Secret.password_search(Keyring.SEARCH_NETWORK_CREDENTIALS, {
+        const schema = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
+            Secret.SchemaFlags.DONT_MATCH_NAME, {
+            "application": Secret.SchemaAttributeType.STRING,
+        });
+
+        Secret.password_search(schema, {
             'application': 'org.jorgeajimenezl.nauta-connect'
         }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (_, r) => {
             let x = Secret.password_search_finish(r);
@@ -186,7 +203,7 @@ const PrefsWidget = GObject.registerClass({
                     license_type: Gtk.License.GPL_2_0,
                     // logo_icon_name: Package.name,
                     version: "0.0.1",
-        
+
                     transient_for: this.window,
                     modal: true,
                 });

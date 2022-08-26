@@ -7,8 +7,14 @@ Utility to authenticate in ETECSA network
 + [libsecret](https://gitlab.gnome.org/GNOME/libsecret/)
 + [libsoup](https://gitlab.gnome.org/GNOME/libsoup)
 
+## Install from AUR (Archlinux)
+Go to [gnome-extension-shell-nauta-connect-git](https://aur.archlinux.org/packages/gnome-extension-shell-nauta-connect-git). You can use a tool like `yay` to install it:
+```bash
+$ yay gnome-extension-shell-nauta-connect-git
+```
+
 ## Install from Gnome Extensions
-Open [Gnome Extensions](https://extensions.gnome.org) and search `Nauta Connect` in the search bar
+First check if you have installed all the dependencies. Then open [Gnome Extensions](https://extensions.gnome.org) and search `Nauta Connect` in the search bar.
 
 ## Install from source
 ### Install
@@ -19,9 +25,9 @@ $ chmod +x install.sh
 $ ./install.sh
 ```
 
-### Enable
+### Enable/Disable
 ```bash
-gnome-extensions enable nauta-connect@jorgeajimenezl.com
+gnome-extensions [enable|disable] nauta-connect@jorgeajimenezl.com
 ```
 
 ## Author

@@ -16,7 +16,6 @@ const PopupMenu = imports.ui.popupMenu;
 const Mainloop = imports.mainloop;
 
 const _ = ExtensionUtils.gettext;
-const Keyring = Me.imports.keyring;
 const NautaSession = Me.imports.nautaSession.NautaSession;
 
 function formatNumber(x, length) {
@@ -29,11 +28,12 @@ function formatNumber(x, length) {
 
 const Indicator = GObject.registerClass(
     class Indicator extends PanelMenu.Button {
-        _init(settings, session) {
+        _init() {
             super._init(0.0, _('Nauta Connect'));
+            
+            this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.nauta-connect');
+            this.session = new NautaSession(this.settings);
 
-            this.settings = settings;
-            this.session = session;
             this._refreshTimerId = null;
             this.startTime = 0;
             this.totalTime = null;
@@ -178,7 +178,12 @@ const Indicator = GObject.registerClass(
         }
 
         _populate_users() {
-            Secret.password_search(Keyring.SEARCH_NETWORK_CREDENTIALS, {
+            const schema = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
+                Secret.SchemaFlags.DONT_MATCH_NAME, {
+                "application": Secret.SchemaAttributeType.STRING,
+            });
+
+            Secret.password_search(schema, {
                 'application': 'org.jorgeajimenezl.nauta-connect'
             }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (_, r) => {
                 let x = Secret.password_search_finish(r);
@@ -210,14 +215,11 @@ const Indicator = GObject.registerClass(
 class Extension {
     constructor(uuid) {
         this._uuid = uuid;
-        this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.nauta-connect');
-        this.session = new NautaSession(this.settings);
-
         ExtensionUtils.initTranslations(GETTEXT_DOMAIN);
     }
 
     enable() {
-        this._indicator = new Indicator(this.settings, this.session);
+        this._indicator = new Indicator();
         Main.panel.addToStatusArea(this._uuid, this._indicator);
     }
 

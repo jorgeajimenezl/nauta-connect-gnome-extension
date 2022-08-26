@@ -1,217 +1,245 @@
-const {
-    Adw,
-    GObject,
-    Gtk,
-    GLib,
-    Secret,
-    Gio
-} = imports.gi;
+imports.gi.versions.Soup = '3.0';
+const { Soup, GXml, Gio, GObject, GLib } = imports.gi;
 
-const ExtensionUtils = imports.misc.extensionUtils;
-const Me = ExtensionUtils.getCurrentExtension();
-const GETTEXT_DOMAIN = 'nauta-connect';
-const UI_FOLDER = Me.dir.get_child('ui');
-const Keyring = Me.imports.keyring;
+const NAUTA_LOGIN_URI = 'https://secure.etecsa.net:8443/'
 
-const _ = ExtensionUtils.gettext;
+var NautaSession = GObject.registerClass({
+    GTypeName: 'NautaSession'
+}, class NautaSession extends GObject.Object {
+    /**
+     * @param {Gio.Settings} username
+     */
+    _init(settings = null) {
+        super._init({});
+        this.session = new Soup.Session();
 
-const AccountItemWidget = GObject.registerClass({
-    GTypeName: 'AccountItemWidget',
-    Template: UI_FOLDER.get_child('account-item-widget.ui').get_uri(),
-    InternalChildren: ['userEntry', "passwordEntry", "editButton"]
-}, class AccountItemWidget extends Gtk.ListBoxRow {
-    _init(window, container, account = null) {
-        super._init();
+        // I don't know why I'd do this, but without this piece of shit doesn't works
+        // PD: I love u ETECSA ❤️‍🩹️
+        this.session.add_feature(new Soup.CookieJar()); 
 
-        this.window = window;
-        this.container = container;
-        this.ready = (account != null);
-        this.uuid = this.ready ? account.uuid : GLib.uuid_string_random();
-        this.saved = this.ready;
+        this.settings = settings;
+        this.csrfhw = null;
+        this.wlanuserip = null;
+        this.attribute_uuid = null;
+        this.username = null;
+        this.connected = false;
+        this._decoder = new TextDecoder();
 
-        if (this.ready) {
-            this._userEntry.text = account.username;
-            this._passwordEntry.text = account.password;
-        } else {
-            this._editButton.icon_name = 'document-save-symbolic';
-            this._passwordEntry.visible = true;
-            this._userEntry.sensitive = true;
-        }
+        if (this.settings != null)
+            this.load();
     }
 
-    _onEdit() {
-        if (!this.ready) {
-            // save
-            Secret.password_store(Keyring.NETWORK_CREDENTIALS, {
-                'uuid': this.uuid,
-                'application': 'org.jorgeajimenezl.nauta-connect'
-            }, Secret.COLLECTION_DEFAULT, this._userEntry.text, this._passwordEntry.text, null, (_, r) => {
-                let x = Secret.password_store_finish(r);
-                if (x) {
-                    this._userEntry.sensitive = false;
-                    this._passwordEntry.visible = false;
-                    this._editButton.icon_name = 'document-properties-symbolic';
-                    this.ready = true;
-                    this.saved = true;
-                } else {
-                    let dialog = new Gtk.MessageDialog({
-                        title: 'Warning',
-                        text: _('Unable to connect with secrets service'),
-                        buttons: [Gtk.ButtonsType.NONE],
-                        transient_for: this.window,
-                        message_type: Gtk.MessageType.WARNING,
-                        modal: true,
-                    });
-                    dialog.add_button('OK', Gtk.ResponseType.OK);
-                    dialog.connect('response', () => {
-                        dialog.destroy();
-                    });
-                    dialog.show();
+    /**
+     * Login with the given username and password
+     * 
+     * @param {string} username
+     * @param {string} password
+     * @param {Gio.Cancellable} cancellable
+     * @param {{ (o: any, r: any): void; (source_object: any, res: Gio.Task): void; }} callback     
+     */
+    login_async(username, password, cancellable, callback) {
+        let task = Gio.Task.new(this, cancellable, callback);
+
+        if (this.connected) {
+            task.return_boolean(true);
+            return;
+        }        
+        
+        this.session.send_and_read_async(Soup.Message.new('GET', NAUTA_LOGIN_URI), 
+                                        0, cancellable, (_, r1) => {
+            try {
+                let x = this.session.send_and_read_finish(r1);
+                if (x == null) {
+                    task.return_error(GLib.Error.new_literal(
+                        GLib.quark_from_string('NautaSessionError'), 1, 'Unable to connect with ETECSA portal'));
+                    return;
                 }
-            });
-        } else {
-            this._userEntry.sensitive = true;
-            this._passwordEntry.visible = true;
-            this._editButton.icon_name = 'document-save-symbolic';
-            this.ready = false;
-        }
-    }
+                var content = this._decoder.decode(x.get_data());
+                let element = GXml.XHtmlDocument.from_string(content, 32)
+                                                .get_element_by_id('formulario');        
+                let inputs = element.get_elements_by_tag_name('input');
+                let map = {}; 
 
-    _onDelete() {
-        var erase = () => {
-            this.container.remove(this);
-        };
+                for (let i = 0; i < inputs.get_length(); i++) {
+                    let e = inputs.get_element(i);
+                    if (e.get_attribute('type') == 'hidden')
+                        map[e.get_attribute('name').toLowerCase()] = e.get_attribute('value');
+                }
+                
+                // set properties
+                let login_uri = element.get_attribute('action');
+                this.csrfhw = map['csrfhw'];
+                this.wlanuserip = map['wlanuserip'];
 
-        if (this.saved) {
-            Secret.password_clear(Keyring.NETWORK_CREDENTIALS, {
-                'uuid': this.uuid,
-                'application': 'org.jorgeajimenezl.nauta-connect'
-            }, null, erase);
-        } else {
-            erase();
-        }
-    }
-
-    _onEntryChanged() {
-        if (this._userEntry.text.trim() == "" ||
-            this._passwordEntry.text.trim() == "")
-            this._editButton.sensitive = false;
-        else
-            this._editButton.sensitive = true;
-    }
-});
-
-const AccountsWindow = GObject.registerClass({
-    GTypeName: 'AccountsWindow',
-    Template: UI_FOLDER.get_child('accounts-window.ui').get_uri(),
-    InternalChildren: ['accountList']
-}, class AccountsWindow extends Gtk.Window {
-    _init(params = {}) {
-        super._init(params);
-        // window.resize(700, 900);
-        this.default_height = 400;
-        this.default_width = 600;
-
-        let headerBar = new Gtk.HeaderBar();
-        let box = new Gtk.Box({
-            orientation: Gtk.Orientation.HORIZONTAL,
-            spacing: 10
-        });
-        box.append(Gtk.Image.new_from_icon_name('contact-new-symbolic'));
-        box.append(Gtk.Label.new('Add user'));
-
-        let button = new Gtk.Button({
-            child: box
-        });
-
-        button.connect('clicked', () => {
-            this._accountList.append(new AccountItemWidget(this, this._accountList));
-        });
-
-        headerBar.pack_end(button);
-        this.set_titlebar(headerBar);
-
-        // populate the list
-        Secret.password_search(Keyring.SEARCH_NETWORK_CREDENTIALS, {
-            'application': 'org.jorgeajimenezl.nauta-connect'
-        }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (_, r) => {
-            let x = Secret.password_search_finish(r);
-
-            for (let i = 0; i < x.length; i++) {
-                let user = x[i].get_label();
-                let pass = x[i].retrieve_secret_sync(null).get_text();
-                let uuid = x[i].get_attributes()['uuid'];
-
-                this._accountList.append(new AccountItemWidget(this, this._accountList, {
-                    username: user,
-                    password: pass,
-                    uuid: uuid
+                let message = Soup.Message.new_from_encoded_form('POST', login_uri, Soup.form_encode_hash({
+                    'CSRFHW': this.csrfhw,
+                    'wlanuserip': this.wlanuserip,
+                    'username': username,
+                    'password': password,
                 }));
+                                
+                this.session.send_and_read_async(message, 0, cancellable, (_, r2) => {
+                    try {
+                        if (message.status_code < 200 || 299 < message.status_code) {
+                            task.return_error(GLib.Error.new_literal(
+                                            GLib.quark_from_string('NautaSessionError'), 1, message.get_reason_phrase()));
+                            return;
+                        }
+                        let m = this.session.send_and_read_finish(r2);
+                        var matches = this._decoder.decode(m.get_data()).match('ATTRIBUTE_UUID=([^&]+)');
+                        if (matches == null) {
+                            task.return_error(GLib.Error.new_literal(
+                                GLib.quark_from_string('NautaSessionError'), 1, 'Unable to get connection identifier'));
+                            return;
+                        }
+                        this.attribute_uuid = matches[1];        
+                        this.connected = true;
+                        this.username = username;
+
+                        if (this.settings != null)
+                            this.save();
+                        task.return_boolean(true);
+                    } catch (e) {
+                        log(e);
+                        task.return_error(e);
+                        return;
+                    }
+                });
+            } catch (e) {
+                log(e);
+                task.return_error(e);
+                return;
+            }
+        });      
+    };
+
+    save() {
+        this.settings.set_string('session-csrfhw', this.csrfhw);
+        this.settings.set_string('session-wlanuserip', this.wlanuserip);
+        this.settings.set_string('session-attribute-uuid', this.attribute_uuid);
+        this.settings.set_string('session-username', this.username);
+        this.settings.set_boolean('session-connected', this.connected);
+    }
+
+    load() {
+        this.csrfhw = this.settings.get_string('session-csrfhw');
+        this.wlanuserip = this.settings.get_string('session-wlanuserip');
+        this.attribute_uuid = this.settings.get_string('session-attribute-uuid');
+        this.username = this.settings.get_string('session-username');
+        this.connected = this.settings.get_boolean('session-connected');
+    }
+
+    /**
+     * @param {Gio.Task} result
+     * @returns {Boolean} If the login was successful or not
+     */
+    login_finish(result) {
+        return result.propagate_boolean();
+    }
+
+    /**
+     * Logout from the opened session
+     * 
+     * @param {Gio.Cancellable} cancellable
+     * @param {{ (o: any, r: any): void; (source_object: NautaSession, res: Gio.Task): void; }} callback     
+     */
+    logout_async(cancellable, callback) {
+        let task = Gio.Task.new(this, cancellable, callback);
+
+        if (!this.connected) {
+            task.return_boolean(true);
+            return;
+        }
+
+        let message = Soup.Message.new_from_encoded_form('GET', NAUTA_LOGIN_URI + 'LogoutServlet', Soup.form_encode_hash({
+            'CSRFHW': this.csrfhw,
+            'wlanuserip': this.wlanuserip,
+            'username': this.username,
+            'ATTRIBUTE_UUID': this.attribute_uuid,
+        }));
+        
+        this.session.send_and_read_async(message, 0, cancellable, (_, r) => {
+            try {
+                if (message.status_code < 200 || 299 < message.status_code) {
+                    task.return_error(GLib.Error.new_literal(
+                                    GLib.quark_from_string('NautaSessionError'), 2, message.get_reason_phrase()));
+                    return;
+                }
+
+                this.connected = false;
+                if (this.settings != null)
+                    this.save();
+                task.return_boolean(true);                
+            } catch (e) {
+                task.return_error(e);
+                return;
             }
         });
     }
-});
 
-const PrefsWidget = GObject.registerClass({
-    GTypeName: 'PrefsWidget',
-    Template: UI_FOLDER.get_child('prefs-widget.ui').get_uri(),
-    InternalChildren: ['timeInfoComboBox', 'notifyLimitsSwitch']
-}, class PrefsWidget extends Gtk.Box {
+    /**
+     * @param {Gio.Task} result
+     * @returns {Boolean} If the logout operation was successful or not
+     */
+    logout_finish(result) {
+        return result.propagate_boolean();
+    }
 
-    _init(params = {}) {
-        super._init(params);
+    /**
+     * Get the time remained
+     * 
+     * @param {Gio.Cancellable} cancellable
+     * @param {Gio.AsyncReadyCallback<any>} callback     
+     */
+    get_remaining_time_async(cancellable, callback) {
+        let task = Gio.Task.new(this, cancellable, callback);
 
-        this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.nauta-connect');
-        this.settings.bind('time-info', this._timeInfoComboBox, 'active-id', Gio.SettingsBindFlags.DEFAULT);
-        this.settings.bind('notifications-limits', this._notifyLimitsSwitch, 'state', Gio.SettingsBindFlags.DEFAULT);
+        if (!this.connected) {
+            task.return_error(GLib.Error.new_literal(
+                GLib.quark_from_string('NautaSessionError'), 2, "Unable to get information in desconnected state"));
+            return;
+        }
 
-        this.connect('realize', () => {
-            this.window = this.get_root();
-
-            this.window.default_width = 400;
-            this.window.default_height = 400;
-            // window.resize(700, 900);
-
-            let headerBar = new Gtk.HeaderBar();
-            let button = Gtk.Button.new_from_icon_name('dialog-information-symbolic');
-
-            button.connect('clicked', () => {
-                let aboutDialog = new Gtk.AboutDialog({
-                    authors: [
-                        'Jorge Alejandro Jimenez Luna <jorgeajimenezl17@gmail.com>',
-                    ],
-                    // translator_credits: _('translator-credits'),
-                    program_name: _('Nauta Connect'),
-                    comments: _('Utility to authenticate in ETECSA network'),
-                    license_type: Gtk.License.MIT_X11,
-                    // logo_icon_name: Package.name,
-                    version: "0.0.1",
+        let message = Soup.Message.new_from_encoded_form('POST', NAUTA_LOGIN_URI + 'EtecsaQueryServlet', Soup.form_encode_hash({
+            "op": "getLeftTime",
+            'CSRFHW': this.csrfhw,
+            'wlanuserip': this.wlanuserip,
+            'username': this.username,
+            'ATTRIBUTE_UUID': this.attribute_uuid,
+        }));
         
-                    transient_for: this.window,
-                    modal: true,
-                });
-                aboutDialog.show();
-            });
+        this.session.send_and_read_async(message, 0, cancellable, (_, r) => {
+            try {
+                if (message.status_code < 200 || 299 < message.status_code) {
+                    task.return_error(GLib.Error.new_literal(
+                                    GLib.quark_from_string('NautaSessionError'), 2, message.get_reason_phrase()));
+                    return;
+                }
 
-            headerBar.pack_end(button);
-            // this.window.set_titlebar(headerBar);
+                let time_text = this._decoder.decode(this.session.send_and_read_finish(r).get_data());
+                if (time_text == null) {
+                    task.return_error(GLib.Error.new_literal(
+                        GLib.quark_from_string('NautaSessionError'), 2, "Unable to parse the response from the server"));
+                    return;
+                }
+                log(time_text);
+                let m = time_text.match('([0-9]+):([0-9]+):([0-9]+)').map((x) => {
+                    return parseInt(x);
+                });
+                task.return_int(m[1] * 60 * 60 + m[2] * 60 + m[3]);
+            } catch (e) {
+                log(e);
+                task.return_error(e);
+                return;
+            }
         });
     }
 
-    _onAccountEdit() {
-        let window = new AccountsWindow({
-            transient_for: this.window
-        });
-
-        window.show();
+    /**
+     * @param {Gio.Task} result   
+     * @returns {Number} Time in seconds that remain in the account
+     */
+    get_remaining_time_finish(result) {
+        return result.propagate_int();
     }
 });
-
-function init() {
-    ExtensionUtils.initTranslations(GETTEXT_DOMAIN);
-}
-
-function buildPrefsWidget() {
-    let widget = new PrefsWidget();
-    return widget;
-}
