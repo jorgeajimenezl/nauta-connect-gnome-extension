@@ -6,6 +6,7 @@ const {
     Secret,
     Clutter,
     GLib,
+    Gio,
 } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -78,8 +79,9 @@ const Indicator = GObject.registerClass(
                 pack_start: false
             });
 
+            let gicon = Gio.icon_new_for_string(Me.path + '/icons/etecsa-logo.svg');
             this._menuLayout.add_actor(new St.Icon({
-                icon_name: 'face-smile-symbolic',
+                gicon: gicon,
                 style_class: 'system-status-icon',
             }));
 
