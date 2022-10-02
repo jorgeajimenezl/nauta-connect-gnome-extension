@@ -21,8 +21,8 @@ const NautaSession = Me.imports.nautaSession.NautaSession;
 
 function format_number(x, length) {
     let res = `${x}`;
-    let len = r.length();
-    while (--length > len)
+    let len = res.length;
+    while (length-- > len)
         res = '0' + res;
     return res;
 }
@@ -38,6 +38,7 @@ const Indicator = GObject.registerClass(
             this._refresh_timer_id = null;
             this.start_time = 0;
             this.total_time = null;
+            this.notified = false;
 
             this._connect_settings();
             this._create_ui();
@@ -68,11 +69,21 @@ const Indicator = GObject.registerClass(
             // });
         }
 
+        _set_disconnected_state() {
+            this.connect_menu.visible = true;
+            this.disconnect_button.visible = false;
+            this.timer_label.visible = false;                    
+            this.total_time = null;
+            this.notified = false;
+            this._menu_layout.remove_style_class_name("box-error");
+            this._destroy_timer();
+        }
+
         _create_ui() {
             this._menu_layout = new St.BoxLayout({
                 vertical: false,
                 clip_to_allocation: true,
-                x_align: Clutter.ActorAlign.START,
+                x_align: Clutter.ActorAlign.FILL,
                 y_align: Clutter.ActorAlign.CENTER,
                 reactive: true,
                 x_expand: true,
@@ -106,11 +117,7 @@ const Indicator = GObject.registerClass(
                         return;
                     }
 
-                    this.connect_menu.visible = true;
-                    this.disconnect_button.visible = false;
-                    this.timer_label.visible = false;                    
-                    this.total_time = null;
-                    this._destroy_timer();
+                    this._set_disconnected_state();
                     log('disconnected successful');
                 });
             });
@@ -123,7 +130,11 @@ const Indicator = GObject.registerClass(
             let reset_state = new PopupMenu.PopupMenuItem(_("Reset state"));
             reset_state.connect('activate', () => {
                 this.menu._getTopMenu().close();
-                this.session.connected = false;             
+
+                // Force to disconnect
+                this.session.connected = false;
+                this._set_disconnected_state();
+                this.session.save();                
             });
             reset_state.insert_child_at_index(new St.Icon({
                 style_class: 'popup-menu-icon',
@@ -146,7 +157,15 @@ const Indicator = GObject.registerClass(
         }
 
         _update_timer() {
-            let seconds = (GLib.get_monotonic_time() - this.start_time) / 1000 / 1000;
+            let seconds = Math.max((GLib.get_monotonic_time() - this.start_time) / (1000 * 1000), 0);
+
+            if (seconds <= 0 && !this.notified) {
+                // Notify limits
+                Main.notify("The connection time has finished");
+                this.notified = true;
+                this._menu_layout.add_style_class_name("box-error");
+            }
+
             if (this.time_info == 'remain' && this.total_time == null) {
                 this.timer_label.text = 'No Available :(';
             } else {
