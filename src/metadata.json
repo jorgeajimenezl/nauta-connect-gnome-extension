@@ -4,8 +4,9 @@
   "uuid": "nauta-connect@jorgeajimenezl.com",
   "shell-version": [
     "41",
-    "42"
+    "42",
+    "43"
   ],
   "url": "https://github.com/jorgeajimenezl/nauta-connect-gnome-extension",
-  "version": 6
+  "version": 7
 }
