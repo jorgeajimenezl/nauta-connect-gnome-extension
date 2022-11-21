@@ -25,5 +25,8 @@
     <key name="notifications-limits" type="b">
         <default>true</default>
     </key>
+    <key name="current-username" type="s">
+        <default>""</default>
+    </key>
   </schema>
 </schemalist>

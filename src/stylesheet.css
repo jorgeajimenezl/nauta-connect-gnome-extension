@@ -1,4 +1,29 @@
-.box-error {
-    background-color: red;
-    border-radius: 4px;
+.nauta-indicator {
+  box-shadow: inset 0 0 0 100px #3584e4;
+}
+
+.nauta-indicator StBoxLayout {
+  spacing: 6px;
+}
+
+.nauta-indicator StIcon {
+  icon-size: 1.09em;
+}
+
+.nauta-indicator:active,
+.nauta-indicator:overview,
+.nauta-indicator:focus,
+.nauta-indicator:checked {
+  box-shadow: inset 0 0 0 100px rgba(53, 132, 228, 0.85);
+}
+
+.nauta-indicator:hover {
+  box-shadow: inset 0 0 0 100px rgba(53, 132, 228, 0.9);
+}
+
+.nauta-indicator:active:hover,
+.nauta-indicator:overview:hover,
+.nauta-indicator:focus:hover,
+.nauta-indicator:checked:hover {
+  box-shadow: inset 0 0 0 100px rgba(53, 132, 228, 0.8);
 }

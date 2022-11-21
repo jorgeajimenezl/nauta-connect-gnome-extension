@@ -7,6 +7,7 @@ const {
     Clutter,
     GLib,
     Gio,
+    Atk,
 } = imports.gi;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -15,222 +16,318 @@ const Main = imports.ui.main;
 const PanelMenu = imports.ui.panelMenu;
 const PopupMenu = imports.ui.popupMenu;
 const Mainloop = imports.mainloop;
+const QuickSettings = imports.ui.quickSettings;
+const QuickSettingsMenu = imports.ui.main.panel.statusArea.quickSettings;
 
 const _ = ExtensionUtils.gettext;
 const NautaSession = Me.imports.nautaSession.NautaSession;
 
-function format_number(x, length) {
-    let res = `${x}`;
-    let len = res.length;
-    while (length-- > len)
-        res = '0' + res;
-    return res;
+class UserMenuITem {
+    constructor(user, session, settings) {
+        this.user = user;
+        this.item = new PopupMenu.PopupMenuItem(user.username);
+        this.session = session;
+        this.settings = settings;
+        
+        this.settings.bind("session-connected", this.item, 'visible', Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.INVERT_BOOLEAN);
+
+        this._connectionId = this.item.connect("activate", () => {
+            this.settings.set_string("current-username", user.username);
+        });
+    }
+
+    login() {
+        // Login
+        this.session.login_async(this.user.username, this.user.password, null, (_, r) => {
+            if (r.had_error() || !this.session.login_finish(r)) {
+                Main.notify("Unable to login right now");
+                return;
+            }
+        });
+    }
+
+    destroy() {
+        if (this._connectionId != null) {
+            this.item.disconnect(this._connectionId);
+            this._connectionId = null;
+        }
+        this.item.destroy();
+        super.destroy();
+    }
 }
 
-const Indicator = GObject.registerClass(
-    class Indicator extends PanelMenu.Button {
-        _init() {
-            super._init(0.0, _('Nauta Connect'));
+const NautaMenuToggle = GObject.registerClass(
+    class NautaMenuToggle extends QuickSettings.QuickMenuToggle {
+        _init(uuid, settings, session) {
+            this.uuid = uuid;
+            this.settings = settings;
+            this.session = session;
+
+            this._changedUserConnectionId = null;
+            this._clickedConnectionId = null;
+            this.items = [];
             
-            this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.nauta-connect');
-            this.session = new NautaSession(this.settings);
+            const icon = Gio.icon_new_for_string(Me.path + '/icons/etecsa-logo.svg');
 
-            this._refresh_timer_id = null;
-            this.start_time = 0;
-            this.total_time = null;
-            this.notified = false;
+            super._init({
+                label: _("Nauta"),
+                gicon: icon,
+                toggleMode: true,
+            });
 
-            this._connect_settings();
-            this._create_ui();
-            this._populate_users();
+            this.menu.setHeader(icon, _("Nauta Connect"), _("Authenticate in ETECSA network"));
+            this.settings.bind("session-connected", this, 'checked', Gio.SettingsBindFlags.GET);
 
-            if (this.session.connected)
-                this._setup_time_updater();
-        }
+            // Populate the list of users            
+            this.buildMenu();
 
-        _destroy_timer() {
-            if (this._refresh_timer_id != null) {
-                Mainloop.source_remove(this._refresh_timer_id);
-                this._refresh_timer_id = null;
-            }
+            // Setup logout action
+            this._clickedConnectionId = this.connect(
+                "clicked", () => { 
+                    const username = this.settings.get_string("current-username");
+                    const connected = this.settings.get_boolean("session-connected");
+
+                    if (!connected) {
+                        this.checked = false;
+                        // this.menu.open();
+
+                        for (const item of this.items) {
+                            if (item.user.username == username)
+                                item.login();
+                        }
+                    } else {
+                        // Logout                        
+                        this.session.logout_async(null, (_, r) => {
+                            if (r.had_error() || !this.session.logout_finish(r)) {
+                                Main.notify(_("Unable to logout from actual session"));
+                                return;
+                            }
+                            this.checked = false;
+                        });
+                    }
+                },
+            );           
+            
+            // Connect settings
+            this._changedUserConnectionId = this.settings.connect(
+                "changed::current-username", () => {
+                    // Mark current user
+                    const username = this.settings.get_string("current-username");
+
+                    for (const userItem of this.items) {
+                        userItem.item.setOrnament(
+                            (username == userItem.user.username) ? PopupMenu.Ornament.DOT
+                                : PopupMenu.Ornament.NONE);
+                    }
+                },
+            );
         }
 
         destroy() {
-            this._destroy_timer();
+            if (this._changedUserConnectionId != null) {
+                this.settings.disconnect(this._changedUserConnectionId);
+                this._changedUserConnectionId = null;
+            }
+
+            if (this._clickedConnectionId != null) {
+                this.disconnect(this._clickedConnectionId);
+                this._clickedConnectionId = null;
+            }
+
+            for (const item of this.items) {
+                item.destroy();
+            }
+
             super.destroy();
         }
 
-        _connect_settings() {
-            this.time_info = this.settings.get_string('time-info');
-            log(`choosen: ${this.time_info}`);
-            
-            // this.settings.bind('changed::time-info', () => {
-            //     this.timeInfo = this.settings.get_string('time-info');
-            // });
-        }
+        buildMenu() {
+            const schema = Secret.Schema.new("org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials",
+                Secret.SchemaFlags.DONT_MATCH_NAME, {
+                "application": Secret.SchemaAttributeType.STRING,
+            });
 
-        _set_disconnected_state() {
-            this.connect_menu.visible = true;
-            this.disconnect_button.visible = false;
-            this.timer_label.visible = false;                    
-            this.total_time = null;
-            this.notified = false;
-            this._menu_layout.remove_style_class_name("box-error");
-            this._destroy_timer();
-        }
+            const username = this.settings.get_string("current-username");
+            Secret.password_search(schema, {
+                "application": "org.jorgeajimenezl.nauta-connect"
+            }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (_, r) => {
+                const x = Secret.password_search_finish(r);
 
-        _create_ui() {
-            this._menu_layout = new St.BoxLayout({
-                vertical: false,
-                clip_to_allocation: true,
-                x_align: Clutter.ActorAlign.FILL,
-                y_align: Clutter.ActorAlign.CENTER,
+                for (let i = 0; i < x.length; i++) {
+                    const user = x[i].get_label();
+                    const pass = x[i].retrieve_secret_sync(null).get_text();
+
+                    const item = new UserMenuITem({
+                        username: user,
+                        password: pass
+                    }, this.session, this.settings);
+
+                    item.item.setOrnament(
+                        (username == user) ? PopupMenu.Ornament.DOT
+                            : PopupMenu.Ornament.NONE);
+                    
+                    this.items.push(item);
+                    this.menu.addMenuItem(item.item);
+                }      
+                
+                // Setup setting
+                // FIX: Need to push this code here coz if
+                // not, the order is random (async)
+                this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                const settingsItem = this.menu.addAction("Settings", () => ExtensionUtils.openPrefs());
+                settingsItem.visible = Main.sessionMode.allowSettings;
+                this.menu._settingsActions[this.uuid] = settingsItem;
+            });             
+        }
+    }
+);
+
+const NautaIndicator = GObject.registerClass(
+    class NautaIndicator extends PanelMenu.Button { 
+        _init(uuid) {
+            super._init({
                 reactive: true,
-                x_expand: true,
-                pack_start: false
-            });
+                can_focus: true,
+                track_hover: true,
+                accessible_role: Atk.Role.PUSH_BUTTON,
+            });                
+            this.add_style_class_name("nauta-indicator");
 
-            this._menu_layout.add_actor(new St.Icon({
-                gicon: Gio.icon_new_for_string(Me.path + '/icons/etecsa-logo.svg'),
-                style_class: 'system-status-icon',
-            }));
+            this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.nauta-connect');
+            this.session = new NautaSession(this.settings);
+            this.quickSettingsItems = [];
+            
+            this._refreshTimerConnectionId = null;
+            this._connectedConnectionId = null;
+            this._startTime = 0;
+            this._totalTime = null;
+            this._notified = false;
 
-            this.timer_label = new St.Label({
-                text: 'Still unavailable :)',
-                visible: this.session.connected,
-                y_align: Clutter.ActorAlign.CENTER,
-            });
-            this._menu_layout.add_actor(this.timer_label);            
+            this.buildUI();           
+                               
+            this._connectedConnectionId = this.settings.connect(
+                "changed::session-connected", () => {
+                    const connected = this.settings.get_boolean("session-connected");
 
-            this.connect_menu = new PopupMenu.PopupSubMenuMenuItem(_("Connect"), true);
-            this.connect_menu.icon.icon_name = 'avatar-default-symbolic';
-            this.connect_menu.visible = !this.session.connected;
-            this.menu.addMenuItem(this.connect_menu);
-
-            this.disconnect_button = new PopupMenu.PopupMenuItem(_("Disconnect"));
-            this.disconnect_button.visible = this.session.connected;
-            this.disconnect_button.connect('activate', () => {
-                this.menu._getTopMenu().close();
-                this.session.logout_async(null, (_, r) => {
-                    if (r.had_error() || !this.session.logout_finish(r)) {
-                        Main.notify('Unable to logout from actual session');
-                        return;
+                    if (connected) {
+                        this.show();
+                        this.setupTimer();                        
+                    } else {
+                        this.hide();
+                        this._totalTime = null;
+                        this.destroyTimer();
                     }
-
-                    this._set_disconnected_state();
-                    log('disconnected successful');
-                });
-            });
-            this.disconnect_button.insert_child_at_index(new St.Icon({
-                style_class: 'popup-menu-icon',
-                icon_name: 'network-wired-disconnected-symbolic'
-            }), 1);
-            this.menu.addMenuItem(this.disconnect_button);
-
-            let reset_state = new PopupMenu.PopupMenuItem(_("Reset state"));
-            reset_state.connect('activate', () => {
-                this.menu._getTopMenu().close();
-
-                // Force to disconnect
-                this.session.connected = false;
-                this._set_disconnected_state();
-                this.session.save();                
-            });
-            reset_state.insert_child_at_index(new St.Icon({
-                style_class: 'popup-menu-icon',
-                icon_name: 'view-refresh-symbolic'
-            }), 1);
-            this.menu.addMenuItem(reset_state);
-
-            let prefs_button = new PopupMenu.PopupMenuItem(_("Settings"));
-            prefs_button.connect('activate', () => {
-                this.menu._getTopMenu().close();
-                ExtensionUtils.openPrefs();
-            });
-            prefs_button.insert_child_at_index(new St.Icon({
-                style_class: 'popup-menu-icon',
-                icon_name: 'preferences-system-symbolic'
-            }), 1);
-
-            this.menu.addMenuItem(prefs_button);
-            this.add_actor(this._menu_layout);
+                },
+            );
+            
+            // Create the toggle menu and associate it with the indicator, being
+            // sure to destroy it along with the indicator
+            this.quickSettingsItems.push(new NautaMenuToggle(uuid, this.settings, this.session));
+            
+            // Add the indicator to the panel and the toggle to the menu
+            // QuickSettingsMenu._indicators.insert_child_at_index(this, 0);
+            Main.panel.addToStatusArea(uuid, this);
+            QuickSettingsMenu._addItems(this.quickSettingsItems);
         }
 
-        _update_timer() {
-            let seconds = Math.max((GLib.get_monotonic_time() - this.start_time) / (1000 * 1000), 0);
+        buildUI() {
+            this._box = new St.BoxLayout();
+            this.add_child(this._box);
 
-            if (seconds <= 0 && !this.notified) {
-                // Notify limits
-                Main.notify("The connection time has finished");
-                this.notified = true;
-                this._menu_layout.add_style_class_name("box-error");
-            }
+            this._label = new St.Label({
+                text: "",
+                y_align: Clutter.ActorAlign.CENTER,
+                visible: true,
+            });
+            
+            this._box.add_child(this._label);
 
-            if (this.time_info == 'remain' && this.total_time == null) {
-                this.timer_label.text = 'No Available :(';
-            } else {
-                if (this.time_info == 'remain')
-                    seconds = this.total_time - seconds;
-                this.timer_label.text = `${format_number((seconds / 60 / 60) | 0, 2)}:${format_number(((seconds / 60) % 60) | 0, 2)}:${format_number((seconds % 60) | 0, 2)}`;
-            }
+            this._icon = new St.Icon({ icon_name: 'window-close-symbolic' });
+            this._box.add_child(this._icon);
+
+            this.hide();
         }
 
-        _setup_time_updater() {
-            this.start_time = GLib.get_monotonic_time(); // microseconds                          
+        vfunc_event(event) {
+            if (event.type() === Clutter.EventType.TOUCH_BEGIN ||
+                event.type() === Clutter.EventType.BUTTON_PRESS) {
+                    // Logout
+
+                    this.session.logout_async(null, (_, r) => {
+                        if (r.had_error() || !this.session.logout_finish(r)) {
+                            Main.notify(_("Unable to logout from actual session"));
+                            return;
+                        }
+                    });
+                }
+    
+            return Clutter.EVENT_PROPAGATE;
+        }    
+
+        setupTimer() {
+            this._startTime = GLib.get_monotonic_time();                         
 
             // get remained time
             this.session.get_remaining_time_async(null, (_, r) => {
                 try {
-                    this.total_time = this.session.get_remaining_time_finish(r);
+                    this._totalTime = this.session.get_remaining_time_finish(r);
                 } catch (e) {
-                    this.total_time = null;
+                    this._totalTime = null;
                 }
-                this.timer_label.visible = true;
             });
 
-            if (this.time_info != 'none') {
+            const info = this.settings.get_string("time-info");
+            if (info != "none") {
                 // timer update
-                this._refresh_timer_id = Mainloop.timeout_add_seconds(1.0, (self) => {
-                    this._update_timer();
+                this._refreshTimerConnectionId = Mainloop.timeout_add_seconds(1.0, (self) => {
+                    this.updateTimer();
                     return true;
                 });
             }
         }
 
-        _populate_users() {
-            const schema = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
-                Secret.SchemaFlags.DONT_MATCH_NAME, {
-                "application": Secret.SchemaAttributeType.STRING,
-            });
+        updateTimer() {
+            let seconds = Math.max((GLib.get_monotonic_time() - this._startTime) / (1000 * 1000), 0);
 
-            Secret.password_search(schema, {
-                'application': 'org.jorgeajimenezl.nauta-connect'
-            }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (_, r) => {
-                let x = Secret.password_search_finish(r);
+            if (seconds <= 0 && !this._notified) {
+                // Notify limits
+                Main.notify("The connection time has finished");
+                this._notified = true;
+                // this.add_style_class_name("box-error");
+            }
 
-                for (let i = 0; i < x.length; i++) {
-                    let user = x[i].get_label();
-                    let pass = x[i].retrieve_secret_sync(null).get_text();
-                    // let uuid = x[i].get_attributes()['uuid'];
+            const info = this.settings.get_string("time-info");
 
-                    let item = new PopupMenu.PopupMenuItem(user);
-                    item.connect('activate', () => {
-                        // connect
-                        this.session.login_async(user, pass, null, (_, r) => {
-                            if (r.had_error() || !this.session.login_finish(r)) {
-                                Main.notify('Unable to login right now');
-                                return;
-                            } 
-                            this.connect_menu.visible = false;
-                            this.disconnect_button.visible = true;
-                            this._setup_time_updater();
-                        });
-                    });
-                    this.connect_menu.menu.addMenuItem(item);
-                }                    
-            });
+            if (info == 'remain' && this._totalTime == null) {
+                this._label.text = '   No Available :(';
+            } else {
+                if (info == 'remain')
+                    seconds = this._totalTime - seconds;
+
+                const text = "   %02d:%02d:%02d".format(seconds / 3600, (seconds / 60) % 60, seconds % 60);
+                this._label.text = text;
+            }
         }
-    });
+
+        destroy() {
+            this.quickSettingsItems.forEach(item => item.destroy());
+
+            if (this._connectedConnectionId != null) {
+                this.settings.disconnect(this._connectedConnectionId);
+                this._connectedConnectionId = null;
+            }
+            this.destroyTimer();
+            super.destroy();
+        }
+
+        destroyTimer() {
+            if (this._refreshTimerConnectionId != null) {
+                Mainloop.source_remove(this._refreshTimerConnectionId);
+                this._refreshTimerConnectionId = null;
+            }
+        }
+    }
+);
 
 class Extension {
     constructor(uuid) {
@@ -239,8 +336,7 @@ class Extension {
     }
 
     enable() {
-        this._indicator = new Indicator();
-        Main.panel.addToStatusArea(this._uuid, this._indicator);
+        this._indicator = new NautaIndicator(this._uuid);
     }
 
     disable() {

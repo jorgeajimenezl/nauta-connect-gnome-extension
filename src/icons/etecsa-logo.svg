@@ -2,39 +2,10 @@
 <svg
    width="128"
    height="128"
-   viewBox="0 0 128 128"
-   enable-background="new 0 0 52 52"
-   version="1.1"
-   id="svg4"
-   sodipodi:docname="etecsa-logo.svg"
-   inkscape:version="1.2.1 (9c6d41e410, 2022-07-14)"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
    xmlns:svg="http://www.w3.org/2000/svg">
-  <defs
-     id="defs8" />
-  <sodipodi:namedview
-     id="namedview6"
-     pagecolor="#ffffff"
-     bordercolor="#000000"
-     borderopacity="0.25"
-     inkscape:showpageshadow="2"
-     inkscape:pageopacity="0.0"
-     inkscape:pagecheckerboard="0"
-     inkscape:deskcolor="#d1d1d1"
-     showgrid="false"
-     inkscape:zoom="5.96875"
-     inkscape:cx="64"
-     inkscape:cy="64.08377"
-     inkscape:window-width="1920"
-     inkscape:window-height="1052"
-     inkscape:window-x="0"
-     inkscape:window-y="0"
-     inkscape:window-maximized="1"
-     inkscape:current-layer="svg4" />
   <path
      d="M 17.597593,85.044404 C 41.997973,60.607254 65.539078,38.081909 88.847594,15.044405 80.021594,11.423455 70.966093,9.1580801 61.347593,9.8167801 38.101843,11.40868 17.171093,29.571904 13.001143,52.544404 c -2.1247,11.705 0.872725,21.56075 4.59645,32.5 m 77.000001,-32.75 c -10.17902,0.51991 -24.236371,0.419385 -35.000001,0.15075 -11.089,11.99649 -23.953525,23.6698 -38.440775,38.349248 0.4019,1.4825 2.03685,3.09925 3.00945,4.25 2.176595,2.522265 12.198035,12.129478 14.681325,11.792998 C 50.367068,95.694202 77.400318,68.495464 94.597594,52.294404 M 45.347593,110.5444 c 7.856,2.14425 15.48525,4.2935 23.75,3.7275 20.481751,-1.4025 40.738747,-15.249998 47.249997,-35.227496 -11.89009,0.0093 -24.854021,0.446225 -38.999997,0.15075 -11.158655,11.281963 -18.626415,17.817443 -32,31.349246 z"
      id="path2"
-     style="fill:#cccccc" />
+     fill="white" />
 </svg>
