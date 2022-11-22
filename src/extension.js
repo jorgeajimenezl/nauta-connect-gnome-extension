@@ -52,7 +52,7 @@ class UserMenuITem {
             this._connectionId = null;
         }
         this.item.destroy();
-        super.destroy();
+        // super.destroy();
     }
 }
 
@@ -138,7 +138,7 @@ const NautaMenuToggle = GObject.registerClass(
                 item.destroy();
             }
 
-            super.destroy();
+            // super.destroy();
         }
 
         buildMenu() {
@@ -255,7 +255,7 @@ const NautaIndicator = GObject.registerClass(
 
                     this.session.logout_async(null, (_, r) => {
                         if (r.had_error() || !this.session.logout_finish(r)) {
-                            Main.notify(_("Unable to logout from actual session"));
+                            Main.notify("Unable to logout from actual session");
                             return;
                         }
                     });
@@ -317,7 +317,7 @@ const NautaIndicator = GObject.registerClass(
                 this._connectedConnectionId = null;
             }
             this.destroyTimer();
-            super.destroy();
+            // super.destroy();
         }
 
         destroyTimer() {
