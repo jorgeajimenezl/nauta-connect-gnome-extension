@@ -29,7 +29,11 @@ class UserMenuITem {
         this.session = session;
         this.settings = settings;
         
-        this.settings.bind("session-connected", this.item, 'visible', Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.INVERT_BOOLEAN);
+        this.settings.bind(
+            "session-connected", 
+            this.item, "visible", 
+            Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.INVERT_BOOLEAN
+        );
 
         this._connectionId = this.item.connect("activate", () => {
             this.settings.set_string("current-username", user.username);
@@ -76,7 +80,7 @@ const NautaMenuToggle = GObject.registerClass(
             });
 
             this.menu.setHeader(icon, _("Nauta Connect"), _("Authenticate in ETECSA network"));
-            this.settings.bind("session-connected", this, 'checked', Gio.SettingsBindFlags.GET);
+            this.settings.bind("session-connected", this, "checked", Gio.SettingsBindFlags.GET);
 
             // Populate the list of users            
             this.buildMenu();
@@ -88,9 +92,6 @@ const NautaMenuToggle = GObject.registerClass(
                     const connected = this.settings.get_boolean("session-connected");
 
                     if (!connected) {
-                        this.checked = false;
-                        // this.menu.open();
-
                         for (const item of this.items) {
                             if (item.user.username == username)
                                 item.login();
@@ -102,7 +103,6 @@ const NautaMenuToggle = GObject.registerClass(
                                 Main.notify(_("Unable to logout from actual session"));
                                 return;
                             }
-                            this.checked = false;
                         });
                     }
                 },
@@ -138,7 +138,7 @@ const NautaMenuToggle = GObject.registerClass(
                 item.destroy();
             }
 
-            // super.destroy();
+            super.destroy();
         }
 
         buildMenu() {
@@ -242,10 +242,16 @@ const NautaIndicator = GObject.registerClass(
             
             this._box.add_child(this._label);
 
-            this._icon = new St.Icon({ icon_name: 'window-close-symbolic' });
+            this._icon = new St.Icon({ icon_name: "window-close-symbolic" });
             this._box.add_child(this._icon);
 
-            this.hide();
+            const connected = this.settings.get_boolean("session-connected");
+
+            if (connected) {
+                this.show();
+            } else {
+                this.hide();
+            }
         }
 
         vfunc_event(event) {
@@ -298,10 +304,10 @@ const NautaIndicator = GObject.registerClass(
 
             const info = this.settings.get_string("time-info");
 
-            if (info == 'remain' && this._totalTime == null) {
-                this._label.text = '   No Available :(';
+            if (info == "remain" && this._totalTime == null) {
+                this._label.text = "   No Available :(";
             } else {
-                if (info == 'remain')
+                if (info == "remain")
                     seconds = this._totalTime - seconds;
 
                 const text = "   %02d:%02d:%02d".format(seconds / 3600, (seconds / 60) % 60, seconds % 60);
@@ -317,7 +323,7 @@ const NautaIndicator = GObject.registerClass(
                 this._connectedConnectionId = null;
             }
             this.destroyTimer();
-            // super.destroy();
+            super.destroy();
         }
 
         destroyTimer() {
