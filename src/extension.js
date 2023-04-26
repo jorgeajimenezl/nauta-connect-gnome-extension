@@ -22,7 +22,15 @@ const QuickSettingsMenu = imports.ui.main.panel.statusArea.quickSettings;
 const _ = ExtensionUtils.gettext;
 const NautaSession = Me.imports.nautaSession.NautaSession;
 
-class UserMenuITem {
+function formatTimeString(seconds) {
+    return "   %02d:%02d:%02d".format(
+        seconds / 3600, 
+        (seconds / 60) % 60, 
+        seconds % 60
+    );
+}
+
+class UserMenuItem {
     constructor(user, session, settings) {
         this.user = user;
         this.item = new PopupMenu.PopupMenuItem(user.username);
@@ -41,13 +49,17 @@ class UserMenuITem {
     }
 
     login() {
-        // Login
-        this.session.login_async(this.user.username, this.user.password, null, (_, r) => {
-            if (r.had_error() || !this.session.login_finish(r)) {
-                Main.notify("Unable to login right now");
-                return;
-            }
-        });
+        this.session.login_async(
+            this.user.username,
+            this.user.password,
+            null,
+            (_, r) => {
+                if (r.had_error() || !this.session.login_finish(r)) {
+                    Main.notify("Unable to login right now");
+                    return;
+                }
+            },
+        );
     }
 
     destroy() {
@@ -157,7 +169,7 @@ const NautaMenuToggle = GObject.registerClass(
                     const user = x[i].get_label();
                     const pass = x[i].retrieve_secret_sync(null).get_text();
 
-                    const item = new UserMenuITem({
+                    const item = new UserMenuItem({
                         username: user,
                         password: pass
                     }, this.session, this.settings);
@@ -278,6 +290,7 @@ const NautaIndicator = GObject.registerClass(
                 try {
                     this._totalTime = this.session.get_remaining_time_finish(r);
                 } catch (e) {
+                    log("Unable to get the remaining time in this session");
                     this._totalTime = null;
                 }
             });
@@ -310,8 +323,7 @@ const NautaIndicator = GObject.registerClass(
                 if (info == "remain")
                     seconds = this._totalTime - seconds;
 
-                const text = "   %02d:%02d:%02d".format(seconds / 3600, (seconds / 60) % 60, seconds % 60);
-                this._label.text = text;
+                this._label.text = formatTimeString(seconds);
             }
         }
 

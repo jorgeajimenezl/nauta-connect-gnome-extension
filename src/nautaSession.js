@@ -1,7 +1,8 @@
 imports.gi.versions.Soup = '3.0';
 const { Soup, GXml, Gio, GObject, GLib } = imports.gi;
 
-const NAUTA_LOGIN_URI = 'https://secure.etecsa.net:8443/'
+const NAUTA_LOGIN_URI = 'https://secure.etecsa.net:8443/';
+const _TEXT_DECODE = new TextDecoder();
 
 var NautaSession = GObject.registerClass({
     GTypeName: 'NautaSession'
@@ -23,7 +24,6 @@ var NautaSession = GObject.registerClass({
         this.attribute_uuid = null;
         this.username = null;
         this.connected = false;
-        this._decoder = new TextDecoder();
 
         if (this.settings != null)
             this.load();
@@ -54,7 +54,7 @@ var NautaSession = GObject.registerClass({
                         GLib.quark_from_string('NautaSessionError'), 1, 'Unable to connect with ETECSA portal'));
                     return;
                 }
-                var content = this._decoder.decode(x.get_data());
+                var content = _TEXT_DECODE.decode(x.get_data());
                 let element = GXml.XHtmlDocument.from_string(content, 32)
                                                 .get_element_by_id('formulario');        
                 let inputs = element.get_elements_by_tag_name('input');
@@ -222,7 +222,6 @@ var NautaSession = GObject.registerClass({
                         GLib.quark_from_string('NautaSessionError'), 2, "Unable to parse the response from the server"));
                     return;
                 }
-                log(time_text);
                 let m = time_text.match('([0-9]+):([0-9]+):([0-9]+)').map((x) => {
                     return parseInt(x);
                 });
