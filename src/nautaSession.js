@@ -1,10 +1,13 @@
-imports.gi.versions.Soup = '3.0';
-const { Soup, GXml, Gio, GObject, GLib } = imports.gi;
+import Soup from 'gi://Soup?version=3.0';
+import GLib from 'gi://GLib';
+import GXml from 'gi://GXml';
+import Gio from 'gi://Gio';
+import GObject from 'gi://GObject';
 
 const NAUTA_LOGIN_URI = 'https://secure.etecsa.net:8443/';
 const _TEXT_DECODE = new TextDecoder();
 
-var NautaSession = GObject.registerClass({
+export const NautaSession = GObject.registerClass({
     GTypeName: 'NautaSession'
 }, class NautaSession extends GObject.Object {
     /**
@@ -100,13 +103,13 @@ var NautaSession = GObject.registerClass({
                             this.save();
                         task.return_boolean(true);
                     } catch (e) {
-                        log(e);
+                        console.error(e);
                         task.return_error(e);
                         return;
                     }
                 });
             } catch (e) {
-                log(e);
+                console.error(e);
                 task.return_error(e);
                 return;
             }
@@ -227,7 +230,7 @@ var NautaSession = GObject.registerClass({
                 });
                 task.return_int(m[1] * 60 * 60 + m[2] * 60 + m[3]);
             } catch (e) {
-                log(e);
+                console.error(e);
                 task.return_error(e);
                 return;
             }

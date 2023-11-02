@@ -1,21 +1,15 @@
-const {
-    GObject,
-    Gtk,
-    GLib,
-    Secret,
-    Gio
-} = imports.gi;
+import Adw from 'gi://Adw';
+import GObject from 'gi://GObject';
+import Gtk from 'gi://Gtk';
+import GLib from 'gi://GLib';
+import Secret from 'gi://Secret';
+import Gio from 'gi://Gio';
 
-const ExtensionUtils = imports.misc.extensionUtils;
-const Me = ExtensionUtils.getCurrentExtension();
-const GETTEXT_DOMAIN = 'nauta-connect';
-const UI_FOLDER = Me.dir.get_child('ui');
-
-const _ = ExtensionUtils.gettext;
+import {ExtensionPreferences, gettext as _} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 const AccountItemWidget = GObject.registerClass({
     GTypeName: 'AccountItemWidget',
-    Template: UI_FOLDER.get_child('account-item-widget.ui').get_uri(),
+    Template: GLib.uri_resolve_relative(import.meta.url, 'ui/account-item-widget.ui', GLib.UriFlags.NONE),
     InternalChildren: ['userEntry', "passwordEntry", "editButton"]
 }, class AccountItemWidget extends Gtk.ListBoxRow {
     _init(window, container, account = null) {
@@ -115,7 +109,7 @@ const AccountItemWidget = GObject.registerClass({
 
 const AccountsWindow = GObject.registerClass({
     GTypeName: 'AccountsWindow',
-    Template: UI_FOLDER.get_child('accounts-window.ui').get_uri(),
+    Template: GLib.uri_resolve_relative(import.meta.url, 'ui/accounts-window.ui', GLib.UriFlags.NONE),
     InternalChildren: ['accountList']
 }, class AccountsWindow extends Gtk.Window {
     _init(params = {}) {
@@ -171,14 +165,16 @@ const AccountsWindow = GObject.registerClass({
 
 const PrefsWidget = GObject.registerClass({
     GTypeName: 'PrefsWidget',
-    Template: UI_FOLDER.get_child('prefs-widget.ui').get_uri(),
+    Template: GLib.uri_resolve_relative(import.meta.url, 'ui/prefs-widget.ui', GLib.UriFlags.NONE),
     InternalChildren: ['timeInfoComboBox', 'notifyLimitsSwitch']
 }, class PrefsWidget extends Gtk.Box {
 
-    _init(params = {}) {
+    _init(extensionObject, params = {}) {
         super._init(params);
 
-        this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.nauta-connect');
+        this._extensionObject = extensionObject;
+
+        this.settings = extensionObject.getSettings();
         this.settings.bind('time-info', this._timeInfoComboBox, 'active-id', Gio.SettingsBindFlags.DEFAULT);
         this.settings.bind('notifications-limits', this._notifyLimitsSwitch, 'state', Gio.SettingsBindFlags.DEFAULT);
 
@@ -224,11 +220,26 @@ const PrefsWidget = GObject.registerClass({
     }
 });
 
-function init() {
-    ExtensionUtils.initTranslations(GETTEXT_DOMAIN);
-}
+export default class ExamplePreferences extends ExtensionPreferences {
+    fillPreferencesWindow(window) {
+        window._settings = this.getSettings();
 
-function buildPrefsWidget() {
-    let widget = new PrefsWidget();
-    return widget;
+        let widget = new PrefsWidget(this);
+
+        const page = new Adw.PreferencesPage({
+            title: _('General'),
+            icon_name: 'dialog-information-symbolic',
+        });
+
+        const group = new Adw.PreferencesGroup({
+            title: _('Appearance'),
+            description: _('Configure the appearance of the extension'),
+        });
+
+        group.add(widget);
+        page.add(group);
+        window.add(page);
+        window.set_default_size(widget.width, widget.height);
+        widget.show();
+    }
 }

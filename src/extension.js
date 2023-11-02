@@ -1,26 +1,18 @@
-const GETTEXT_DOMAIN = 'nauta-connect';
+import GObject from 'gi://GObject';
+import St from 'gi://St';
+import Secret from 'gi://Secret';
+import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
+import Gio from 'gi://Gio';
+import Atk from 'gi://Atk';
 
-const {
-    GObject,
-    St,
-    Secret,
-    Clutter,
-    GLib,
-    Gio,
-    Atk,
-} = imports.gi;
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
+import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js';
 
-const ExtensionUtils = imports.misc.extensionUtils;
-const Me = ExtensionUtils.getCurrentExtension();
-const Main = imports.ui.main;
-const PanelMenu = imports.ui.panelMenu;
-const PopupMenu = imports.ui.popupMenu;
-const Mainloop = imports.mainloop;
-const QuickSettings = imports.ui.quickSettings;
-const QuickSettingsMenu = imports.ui.main.panel.statusArea.quickSettings;
-
-const _ = ExtensionUtils.gettext;
-const NautaSession = Me.imports.nautaSession.NautaSession;
+import * as NautaSession from './nautaSession.js';
+import {Extension, gettext as _} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 function formatTimeString(seconds) {
     return "   %02d:%02d:%02d".format(
@@ -74,18 +66,21 @@ class UserMenuItem {
 
 const NautaMenuToggle = GObject.registerClass(
     class NautaMenuToggle extends QuickSettings.QuickMenuToggle {
-        _init(uuid, settings, session) {
-            this.uuid = uuid;
-            this.settings = settings;
+        _init(extensionObject, session) {
             this.session = session;
+
+            this._extensionObject = extensionObject;
+            this.settings = extensionObject.getSettings();
 
             this._changedUserConnectionId = null;
             this._clickedConnectionId = null;
             this.items = [];
             
-            const icon = Gio.icon_new_for_string(Me.path + '/icons/etecsa-logo.svg');
+            const icon = Gio.icon_new_for_string(extensionObject.path + '/icons/etecsa-logo.svg');
 
             super._init({
+                title: _("Nauta Connect"),
+                subtitle: _("Authenticate in ETECSA network"),
                 label: _("Nauta"),
                 gicon: icon,
                 toggleMode: true,
@@ -186,9 +181,9 @@ const NautaMenuToggle = GObject.registerClass(
                 // FIX: Need to push this code here coz if
                 // not, the order is random (async)
                 this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-                const settingsItem = this.menu.addAction("Settings", () => ExtensionUtils.openPrefs());
+                const settingsItem = this.menu.addAction("Settings", () => this._extensionObject.openPreferences());
                 settingsItem.visible = Main.sessionMode.allowSettings;
-                this.menu._settingsActions[this.uuid] = settingsItem;
+                this.menu._settingsActions[this._extensionObject.uuid] = settingsItem;
             });             
         }
     }
@@ -196,7 +191,7 @@ const NautaMenuToggle = GObject.registerClass(
 
 const NautaIndicator = GObject.registerClass(
     class NautaIndicator extends PanelMenu.Button { 
-        _init(uuid) {
+        _init(extensionObject) {
             super._init({
                 reactive: true,
                 can_focus: true,
@@ -205,10 +200,11 @@ const NautaIndicator = GObject.registerClass(
             });                
             this.add_style_class_name("nauta-indicator");
 
-            this.settings = ExtensionUtils.getSettings('org.gnome.shell.extensions.nauta-connect');
-            this.session = new NautaSession(this.settings);
+            this.settings = extensionObject.getSettings();
+            this.session = new NautaSession.NautaSession(this.settings);
             this.quickSettingsItems = [];
             
+            this._extensionObject = extensionObject;
             this._refreshTimerConnectionId = null;
             this._connectedConnectionId = null;
             this._startTime = 0;
@@ -234,12 +230,11 @@ const NautaIndicator = GObject.registerClass(
             
             // Create the toggle menu and associate it with the indicator, being
             // sure to destroy it along with the indicator
-            this.quickSettingsItems.push(new NautaMenuToggle(uuid, this.settings, this.session));
+            this.quickSettingsItems.push(new NautaMenuToggle(extensionObject, this.session));
             
             // Add the indicator to the panel and the toggle to the menu
-            // QuickSettingsMenu._indicators.insert_child_at_index(this, 0);
-            Main.panel.addToStatusArea(uuid, this);
-            QuickSettingsMenu._addItems(this.quickSettingsItems);
+            Main.panel.addToStatusArea(extensionObject.uuid, this);
+            Main.panel.statusArea.quickSettings.addExternalIndicator(this);
         }
 
         buildUI() {
@@ -290,7 +285,7 @@ const NautaIndicator = GObject.registerClass(
                 try {
                     this._totalTime = this.session.get_remaining_time_finish(r);
                 } catch (e) {
-                    log("Unable to get the remaining time in this session");
+                    console.warn("Unable to get the remaining time in this session");
                     this._totalTime = null;
                 }
             });
@@ -298,7 +293,7 @@ const NautaIndicator = GObject.registerClass(
             const info = this.settings.get_string("time-info");
             if (info != "none") {
                 // timer update
-                this._refreshTimerConnectionId = Mainloop.timeout_add_seconds(1.0, (self) => {
+                this._refreshTimerConnectionId = GLib.Mainloop.timeout_add_seconds(1.0, (self) => {
                     this.updateTimer();
                     return true;
                 });
@@ -340,29 +335,20 @@ const NautaIndicator = GObject.registerClass(
 
         destroyTimer() {
             if (this._refreshTimerConnectionId != null) {
-                Mainloop.source_remove(this._refreshTimerConnectionId);
+                GLib.Mainloop.source_remove(this._refreshTimerConnectionId);
                 this._refreshTimerConnectionId = null;
             }
         }
     }
 );
 
-class Extension {
-    constructor(uuid) {
-        this._uuid = uuid;
-        ExtensionUtils.initTranslations(GETTEXT_DOMAIN);
-    }
-
+export default class NautaConnectExtension extends Extension {
     enable() {
-        this._indicator = new NautaIndicator(this._uuid);
+        this._indicator = new NautaIndicator(this);
     }
 
     disable() {
         this._indicator.destroy();
         this._indicator = null;
     }
-}
-
-function init(meta) {
-    return new Extension(meta.uuid);
 }
