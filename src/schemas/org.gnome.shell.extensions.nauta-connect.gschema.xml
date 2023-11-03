@@ -17,6 +17,9 @@
     <key name="session-connected" type="b">
         <default>false</default>
     </key>
+    <key name="session-login-url" type="s">
+        <default>"</default>
+    </key>
 
     <!-- Extension Settings -->
     <key name="time-info" type="s">
