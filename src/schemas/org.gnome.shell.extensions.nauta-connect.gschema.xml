@@ -18,7 +18,7 @@
         <default>false</default>
     </key>
     <key name="session-login-url" type="s">
-        <default>"</default>
+        <default>""</default>
     </key>
 
     <!-- Extension Settings -->

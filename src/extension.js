@@ -7,14 +7,18 @@ import Gio from 'gi://Gio';
 import Atk from 'gi://Atk';
 
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+import * as MessageTray from 'resource:///org/gnome/shell/ui/messageTray.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
 import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js';
 
-import * as NautaSession from './nautaSession.js';
+import NautaSession from './nautaSession.js';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-function format_time_string(seconds) {
+let _notifSource = null;
+let ETECSA_ICON = null;
+
+function formatTimeString(seconds) {
     return "%02d:%02d:%02d".format(
         seconds / 3600,
         (seconds / 60) % 60,
@@ -22,33 +26,80 @@ function format_time_string(seconds) {
     );
 }
 
+const NautaConnectNotificationSource = GObject.registerClass(
+class NautaConnectNotificationSource extends MessageTray.Source {
+    _init() {
+        super._init("Nauta Connect", null);
+    }
+    open() {
+        this.destroy();
+    }
+    createIcon(size) {
+        return new St.Icon({
+            gicon: ETECSA_ICON,
+            icon_size: size,
+        });
+    }
+});
+
+function _initNotifSource () {
+    if (!_notifSource) {
+        _notifSource = new NautaConnectNotificationSource();
+        _notifSource.connect('destroy', () => {
+            _notifSource = null;
+        });
+        Main.messageTray.add(_notifSource);
+    }
+}
+
+function _showNotification (message, details, transformFn) {
+    let notification = null;
+    _initNotifSource();
+
+    if (_notifSource.count === 0) {
+        notification = new MessageTray.Notification(_notifSource, message);
+    }
+    else {
+        notification = _notifSource.notifications[0];
+        notification.update(message, details, { clear: true });
+    }
+
+    if (typeof transformFn === 'function') {
+        transformFn(notification);
+    }
+
+    notification.setTransient(true);
+    _notifSource.showNotification(notification);
+}
+
 class UserMenuItem {
-    constructor(user, session, settings) {
+    constructor(user, panel) {
         this.user = user;
         this.item = new PopupMenu.PopupMenuItem(user.username);
-        this.session = session;
-        this.settings = settings;
+        this.panel = panel;
 
-        this.settings.bind(
+        panel.settings.bind(
             "session-connected",
             this.item, "visible",
             Gio.SettingsBindFlags.GET | Gio.SettingsBindFlags.INVERT_BOOLEAN
         );
 
         this._connectionId = this.item.connect("activate", () => {
-            this.settings.set_string("current-username", user.username);
+            panel.settings.set_string("current-username", user.username);
         });
     }
 
     async login() {
         try {
-            await this.session.login(this.user.username, this.user.password);
-            this.session.save(this.settings);
-            Main.notify(`Logged with ${this.user.username}`);
+            await this.panel.session.login(this.user.username, this.user.password);
+            this.panel.session.save(this.panel.settings);
+            _showNotification(_("Logged successful"), this.user.username);
         } catch (e) {
-            Main.notify(_("Unable to login right now"));
+            _showNotification(_("Unable to login right now"));
             console.error(e);
         }
+
+        this.panel._updateChecked();
     }
 
     destroy() {
@@ -72,15 +123,13 @@ const NautaMenuToggle = GObject.registerClass(
             this._clickedConnectionId = null;
             this.items = [];
 
-            const icon = Gio.icon_new_for_string(extensionObject.path + '/icons/etecsa-logo.svg');
-
             super._init({
                 title: _("Nauta"),
-                gicon: icon,
+                gicon: ETECSA_ICON,
                 toggleMode: true,
             });
 
-            this.menu.setHeader(icon, _("Nauta Connect"), _("Authenticate in ETECSA network"));
+            this.menu.setHeader(ETECSA_ICON, _("Nauta Connect"), _("Authenticate in ETECSA network"));
             this._updateChecked();
 
             // Populate the list of users            
@@ -96,21 +145,21 @@ const NautaMenuToggle = GObject.registerClass(
                         for (const item of this.items) {
                             if (item.user.username == username) {
                                 console.log(`Trying to login with: ${username}`);
-                                item.login().then(this._updateChecked());
+                                item.login();
                             }
                         }
                     } else {
                         // Logout   
-                        console.log(`Trying to logout with: ${username}`);
+                        console.log(_("Trying to logout"));
                         this.session.logout().then(
                             () => {
-                                Main.notify(_("Session closed successfully"));
+                                _showNotification(_("Session closed successfully"));
                                 this.session.save(this.settings);
                                 this._updateChecked();
                             },
                             (e) => {
                                 console.error(e);
-                                Main.notify(_("Unable to logout from actual session"));
+                                _showNotification(_("Unable to logout from actual session"));
                                 this._updateChecked();
                             }
                         );
@@ -126,12 +175,12 @@ const NautaMenuToggle = GObject.registerClass(
 
                     for (const userItem of this.items) {
                         userItem.item.setOrnament(
-                            (username == userItem.user.username) ? PopupMenu.Ornament.DOT
+                            (username === userItem.user.username) ? PopupMenu.Ornament.DOT
                                 : PopupMenu.Ornament.NONE);
                     }
                 },
             );
-        }
+        }        
 
         destroy() {
             if (this._changedUserConnectionId != null) {
@@ -152,7 +201,7 @@ const NautaMenuToggle = GObject.registerClass(
         }
 
         _updateChecked() {
-            this.checked = this.settings.get_boolean("session-connected");
+            this.checked = this.session.is_connected;
         }
 
         buildMenu() {
@@ -174,10 +223,10 @@ const NautaMenuToggle = GObject.registerClass(
                     const item = new UserMenuItem({
                         username: user,
                         password: pass
-                    }, this.session, this.settings);
+                    }, this);
 
                     item.item.setOrnament(
-                        (username == user) ? PopupMenu.Ornament.DOT
+                        (username === user) ? PopupMenu.Ornament.DOT
                             : PopupMenu.Ornament.NONE);
 
                     this.items.push(item);
@@ -208,7 +257,7 @@ const NautaIndicator = GObject.registerClass(
             this.add_style_class_name("nauta-indicator");
 
             this.settings = extensionObject.getSettings();
-            this.session = new NautaSession.NautaSession.from_settings(this.settings);
+            this.session = NautaSession.from_settings(this.settings);
             this.quickSettingsItems = [];
 
             this._extensionObject = extensionObject;
@@ -251,6 +300,7 @@ const NautaIndicator = GObject.registerClass(
             this._label = new St.Label({
                 text: "",
                 y_align: Clutter.ActorAlign.CENTER,
+                margin_left: 2.0,
                 visible: true,
             });
 
@@ -261,27 +311,30 @@ const NautaIndicator = GObject.registerClass(
 
             if (connected) {
                 this.show();
+                this.setupTimer();
             } else {
                 this.hide();
+            }
+        }
+
+        async _logout() {
+            try {
+                await this.session.logout();
+                this.session.save(this.settings);
+                this.quickSettingsItems.forEach(item => item._updateChecked());
+                _showNotification(_("Session closed successfully"));
+            } catch (e) {
+                console.error(e);               
+                this.quickSettingsItems.forEach(item => item._updateChecked());
+                _showNotification(_("Unable to logout from actual session"));
             }
         }
 
         vfunc_event(event) {
             if (event.type() === Clutter.EventType.TOUCH_BEGIN ||
                 event.type() === Clutter.EventType.BUTTON_PRESS) {
-                console.log(`Trying to logout with: ${username}`);
-                this.session.logout().then(
-                    () => {
-                        Main.notify(_("Session closed successfully"));
-                        this.session.save(this.settings);
-                        this.quickSettingsItems.forEach(item => item._updateChecked());
-                    },
-                    (e) => {
-                        console.error(e);
-                        Main.notify(_("Unable to logout from actual session"));
-                        this.quickSettingsItems.forEach(item => item._updateChecked());
-                    }
-                );
+                console.log(_("Trying to logout"));
+                this._logout();
             }
 
             return Clutter.EVENT_PROPAGATE;
@@ -313,20 +366,20 @@ const NautaIndicator = GObject.registerClass(
 
             if (seconds <= 0 && !this._notified) {
                 // Notify limits
-                Main.notify("The connection time has finished");
+                _showNotification("The connection time has finished");
                 this._notified = true;
                 // this.add_style_class_name("box-error");
             }
 
             const info = this.settings.get_string("time-info");
 
-            if (info == "remain" && this._totalTime == null) {
+            if (info === "remain" && this._totalTime == null) {
                 this._label.text = "No Available :(";
             } else {
-                if (info == "remain")
+                if (info === "remain")
                     seconds = this._totalTime - seconds;
 
-                this._label.text = format_time_string(seconds);
+                this._label.text = formatTimeString(seconds);
             }
         }
 
@@ -352,6 +405,7 @@ const NautaIndicator = GObject.registerClass(
 
 export default class NautaConnectExtension extends Extension {
     enable() {
+        ETECSA_ICON = Gio.icon_new_for_string(this.path + '/icons/etecsa-logo.svg');
         this._indicator = new NautaIndicator(this);
     }
 

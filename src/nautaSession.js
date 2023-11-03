@@ -1,9 +1,7 @@
-// import Soup from 'gi://Soup?version=3.0';
-// import GLib from 'gi://GLib';
-// import GXml from 'gi://GXml';
-// import Gio from 'gi://Gio';
-imports.gi.versions.Soup = '3.0';
-const { Soup, GXml, Gio, GObject, GLib } = imports.gi;
+import Soup from 'gi://Soup?version=3.0';
+import GLib from 'gi://GLib';
+import GXml from 'gi://GXml';
+import Gio from 'gi://Gio';
 
 const NAUTA_LOGIN_URL = "https://secure.etecsa.net:8443/";
 const _TEXT_DECODE = new TextDecoder();
@@ -12,7 +10,6 @@ Gio._promisify(Soup.Session.prototype, "send_and_read_async", "send_and_read_fin
 
 export default class NautaSession {
     constructor(state = null) {
-        this.session = new Soup.Session();
         this.state = state == null ? {
             csrfhw: null,
             wlanuserip: null,
@@ -20,6 +17,7 @@ export default class NautaSession {
             auth: null,
         } : state;
 
+        this.session = new Soup.Session();
         // I don't know why I'd do this, but without this piece of shit doesn't works
         // PD: I love u ETECSA ❤️‍🩹️
         this.session.add_feature(new Soup.CookieJar());
@@ -47,8 +45,8 @@ export default class NautaSession {
             settings.set_string("session-username", this.state.auth[0]);
             settings.set_string("session-attribute-uuid", this.state.auth[1]);
         } else {
-            settings.set_string("session-username", null);
-            settings.set_string("session-attribute-uuid", null);
+            settings.set_string("session-username", "");
+            settings.set_string("session-attribute-uuid", "");
         }
     }
     
@@ -80,13 +78,10 @@ export default class NautaSession {
     }
 
     get is_valid_session() {
-        return this.csrfhw != null;
+        return this.state.csrfhw != null;
     }
 
     async _send_request(base, path, form) {
-        if (!this.is_valid_session)
-            await this.build_session();
-
         let state_form = {
             "CSRFHW": this.state.csrfhw,
             "wlanuserip": this.state.wlanuserip,
@@ -124,6 +119,9 @@ export default class NautaSession {
         if (this.is_connected)
             return;
 
+        if (!this.is_valid_session)
+            await this.build_session();
+        
         let [res, msg] = await this._send_request(
             this.state.login_url,
             "", {
@@ -150,7 +148,7 @@ export default class NautaSession {
         }
 
         let m = res.match("ATTRIBUTE_UUID=([^&]+)");
-        if (m == 1)
+        if (m === 1)
             throw new Error("Nauta Error: Invalid response (without connection identifier)")
         this.state.auth = [username, m[1]];
     }
