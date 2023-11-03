@@ -15,8 +15,6 @@ import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js'
 import NautaSession from './nautaSession.js';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
-Gio._promisify(Secret.prototype, "password_search", "password_search_finish");
-
 let _notifSource = null;
 let ETECSA_ICON = null;
 
@@ -206,43 +204,43 @@ const NautaMenuToggle = GObject.registerClass(
             this.checked = this.session.is_connected;
         }
 
-        async buildMenu() {
+        buildMenu() {
             const schema = Secret.Schema.new("org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials",
                 Secret.SchemaFlags.DONT_MATCH_NAME, {
                 "application": Secret.SchemaAttributeType.STRING,
             });
-            const username = this.settings.get_string("current-username");
 
-            try{
-                let x = await Secret.password_search(schema, {
-                    "application": "org.jorgeajimenezl.nauta-connect"
-                }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null);
+            const username = this.settings.get_string("current-username");
+            Secret.password_search(schema, {
+                "application": "org.jorgeajimenezl.nauta-connect"
+            }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (_, r) => {
+                const x = Secret.password_search_finish(r);
 
                 for (let i = 0; i < x.length; i++) {
                     const user = x[i].get_label();
                     const pass = x[i].retrieve_secret_sync(null).get_text();
-    
+
                     const item = new UserMenuItem({
                         username: user,
                         password: pass
                     }, this);
-    
+
                     item.item.setOrnament(
                         (username === user) ? PopupMenu.Ornament.DOT
                             : PopupMenu.Ornament.NONE);
-    
+
                     this.items.push(item);
                     this.menu.addMenuItem(item.item);
                 }
-            } catch (e) {
-                console.error(e);
-                return;
-            }            
 
-            this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-            const settingsItem = this.menu.addAction("Settings", () => this._extensionObject.openPreferences());
-            settingsItem.visible = Main.sessionMode.allowSettings;
-            this.menu._settingsActions[this._extensionObject.uuid] = settingsItem;
+                // Setup setting
+                // FIX: Need to push this code here coz if
+                // not, the order is random (async)
+                this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                const settingsItem = this.menu.addAction("Settings", () => this._extensionObject.openPreferences());
+                settingsItem.visible = Main.sessionMode.allowSettings;
+                this.menu._settingsActions[this._extensionObject.uuid] = settingsItem;
+            });
         }
     }
 );
