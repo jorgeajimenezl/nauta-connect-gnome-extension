@@ -298,7 +298,7 @@ const NautaIndicator = GObject.registerClass(
             const info = this.settings.get_string("time-info");
             if (info != "none") {
                 // timer update
-                this._refreshTimerConnectionId = GLib.Mainloop.timeout_add_seconds(1.0, (self) => {
+                this._refreshTimerConnectionId = GLib.timeout_add_seconds(1.0, (self) => {
                     this.updateTimer();
                     return true;
                 });
@@ -340,7 +340,7 @@ const NautaIndicator = GObject.registerClass(
 
         destroyTimer() {
             if (this._refreshTimerConnectionId != null) {
-                GLib.Mainloop.source_remove(this._refreshTimerConnectionId);
+                GLib.source_remove(this._refreshTimerConnectionId);
                 this._refreshTimerConnectionId = null;
             }
         }
