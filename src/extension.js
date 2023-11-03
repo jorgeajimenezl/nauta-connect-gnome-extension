@@ -47,8 +47,10 @@ class UserMenuItem {
             null,
             (_, r) => {
                 if (r.had_error() || !this.session.login_finish(r)) {
-                    Main.notify("Unable to login right now");
+                    Main.notify(_("Unable to login right now"));
                     return;
+                } else {
+                    Main.notify(`Logged with ${this.user.username}`);
                 }
             },
         );
@@ -79,9 +81,7 @@ const NautaMenuToggle = GObject.registerClass(
             const icon = Gio.icon_new_for_string(extensionObject.path + '/icons/etecsa-logo.svg');
 
             super._init({
-                title: _("Nauta Connect"),
-                subtitle: _("Authenticate in ETECSA network"),
-                label: _("Nauta"),
+                title: _("Nauta"),
                 gicon: icon,
                 toggleMode: true,
             });
@@ -100,15 +100,19 @@ const NautaMenuToggle = GObject.registerClass(
 
                     if (!connected) {
                         for (const item of this.items) {
-                            if (item.user.username == username)
-                                item.login();
+                            if (item.user.username == username) {
+                                console.log(`Trying to login with: ${username}`);
+                                item.login();                                
+                            }
                         }
                     } else {
-                        // Logout                        
+                        // Logout   
+                        console.log(`Trying to logout with: ${username}`);    
                         this.session.logout_async(null, (_, r) => {
                             if (r.had_error() || !this.session.logout_finish(r)) {
                                 Main.notify(_("Unable to logout from actual session"));
-                                return;
+                            } else {
+                                Main.notify(_("Session closed successfully"));
                             }
                         });
                     }
@@ -265,11 +269,12 @@ const NautaIndicator = GObject.registerClass(
             if (event.type() === Clutter.EventType.TOUCH_BEGIN ||
                 event.type() === Clutter.EventType.BUTTON_PRESS) {
                     // Logout
-
+                    console.log(`Trying to logout with: ${username}`);
                     this.session.logout_async(null, (_, r) => {
                         if (r.had_error() || !this.session.logout_finish(r)) {
-                            Main.notify("Unable to logout from actual session");
-                            return;
+                            Main.notify(_("Unable to logout from actual session"));
+                        } else {
+                            Main.notify(_("Session closed successfully"));
                         }
                     });
                 }

@@ -19,7 +19,7 @@ export const NautaSession = GObject.registerClass({
 
         // I don't know why I'd do this, but without this piece of shit doesn't works
         // PD: I love u ETECSA ❤️‍🩹️
-        this.session.add_feature(new Soup.CookieJar()); 
+        this.session.add_feature(new Soup.CookieJar());
 
         this.settings = settings;
         this.csrfhw = null;
@@ -46,74 +46,74 @@ export const NautaSession = GObject.registerClass({
         if (this.connected) {
             task.return_boolean(true);
             return;
-        }        
-        
-        this.session.send_and_read_async(Soup.Message.new('GET', NAUTA_LOGIN_URI), 
-                                        0, cancellable, (_, r1) => {
-            try {
-                let x = this.session.send_and_read_finish(r1);
-                if (x == null) {
-                    task.return_error(GLib.Error.new_literal(
-                        GLib.quark_from_string('NautaSessionError'), 1, 'Unable to connect with ETECSA portal'));
-                    return;
-                }
-                var content = _TEXT_DECODE.decode(x.get_data());
-                let element = GXml.XHtmlDocument.from_string(content, 32)
-                                                .get_element_by_id('formulario');        
-                let inputs = element.get_elements_by_tag_name('input');
-                let map = {}; 
+        }
 
-                for (let i = 0; i < inputs.get_length(); i++) {
-                    let e = inputs.get_element(i);
-                    if (e.get_attribute('type') == 'hidden')
-                        map[e.get_attribute('name').toLowerCase()] = e.get_attribute('value');
-                }
-                
-                // set properties
-                let login_uri = element.get_attribute('action');
-                this.csrfhw = map['csrfhw'];
-                this.wlanuserip = map['wlanuserip'];
-
-                let message = Soup.Message.new_from_encoded_form('POST', login_uri, Soup.form_encode_hash({
-                    'CSRFHW': this.csrfhw,
-                    'wlanuserip': this.wlanuserip,
-                    'username': username,
-                    'password': password,
-                }));
-                                
-                this.session.send_and_read_async(message, 0, cancellable, (_, r2) => {
-                    try {
-                        if (message.status_code < 200 || 299 < message.status_code) {
-                            task.return_error(GLib.Error.new_literal(
-                                            GLib.quark_from_string('NautaSessionError'), 1, message.get_reason_phrase()));
-                            return;
-                        }
-                        let m = this.session.send_and_read_finish(r2);
-                        var matches = this._decoder.decode(m.get_data()).match('ATTRIBUTE_UUID=([^&]+)');
-                        if (matches == null) {
-                            task.return_error(GLib.Error.new_literal(
-                                GLib.quark_from_string('NautaSessionError'), 1, 'Unable to get connection identifier'));
-                            return;
-                        }
-                        this.attribute_uuid = matches[1];        
-                        this.connected = true;
-                        this.username = username;
-
-                        if (this.settings != null)
-                            this.save();
-                        task.return_boolean(true);
-                    } catch (e) {
-                        console.error(e);
-                        task.return_error(e);
+        this.session.send_and_read_async(Soup.Message.new('GET', NAUTA_LOGIN_URI),
+            0, cancellable, (_, r1) => {
+                try {
+                    let x = this.session.send_and_read_finish(r1);
+                    if (x == null) {
+                        task.return_error(GLib.Error.new_literal(
+                            GLib.quark_from_string('NautaSessionError'), 1, 'Unable to connect with ETECSA portal'));
                         return;
                     }
-                });
-            } catch (e) {
-                console.error(e);
-                task.return_error(e);
-                return;
-            }
-        });      
+                    var content = _TEXT_DECODE.decode(x.get_data());
+                    let element = GXml.XHtmlDocument.from_string(content, 32)
+                        .get_element_by_id('formulario');
+                    let inputs = element.get_elements_by_tag_name('input');
+                    let map = {};
+
+                    for (let i = 0; i < inputs.get_length(); i++) {
+                        let e = inputs.get_element(i);
+                        if (e.get_attribute('type') == 'hidden')
+                            map[e.get_attribute('name').toLowerCase()] = e.get_attribute('value');
+                    }
+
+                    // set properties
+                    let login_uri = element.get_attribute('action');
+                    this.csrfhw = map['csrfhw'];
+                    this.wlanuserip = map['wlanuserip'];
+
+                    let message = Soup.Message.new_from_encoded_form('POST', login_uri, Soup.form_encode_hash({
+                        'CSRFHW': this.csrfhw,
+                        'wlanuserip': this.wlanuserip,
+                        'username': username,
+                        'password': password,
+                    }));
+
+                    this.session.send_and_read_async(message, 0, cancellable, (_, r2) => {
+                        try {
+                            if (message.status_code < 200 || 299 < message.status_code) {
+                                task.return_error(GLib.Error.new_literal(
+                                    GLib.quark_from_string('NautaSessionError'), 1, message.get_reason_phrase()));
+                                return;
+                            }
+                            let m = this.session.send_and_read_finish(r2);
+                            var matches = this._decoder.decode(m.get_data()).match('ATTRIBUTE_UUID=([^&]+)');
+                            if (matches == null) {
+                                task.return_error(GLib.Error.new_literal(
+                                    GLib.quark_from_string('NautaSessionError'), 1, 'Unable to get connection identifier'));
+                                return;
+                            }
+                            this.attribute_uuid = matches[1];
+                            this.connected = true;
+                            this.username = username;
+
+                            if (this.settings != null)
+                                this.save();
+                            task.return_boolean(true);
+                        } catch (e) {
+                            console.error(e);
+                            task.return_error(e);
+                            return;
+                        }
+                    });
+                } catch (e) {
+                    console.error(e);
+                    task.return_error(e);
+                    return;
+                }
+            });
     };
 
     save() {
@@ -160,19 +160,19 @@ export const NautaSession = GObject.registerClass({
             'username': this.username,
             'ATTRIBUTE_UUID': this.attribute_uuid,
         }));
-        
+
         this.session.send_and_read_async(message, 0, cancellable, (_, r) => {
             try {
                 if (message.status_code < 200 || 299 < message.status_code) {
                     task.return_error(GLib.Error.new_literal(
-                                    GLib.quark_from_string('NautaSessionError'), 2, message.get_reason_phrase()));
+                        GLib.quark_from_string('NautaSessionError'), 2, message.get_reason_phrase()));
                     return;
                 }
 
                 this.connected = false;
                 if (this.settings != null)
                     this.save();
-                task.return_boolean(true);                
+                task.return_boolean(true);
             } catch (e) {
                 task.return_error(e);
                 return;
@@ -210,12 +210,12 @@ export const NautaSession = GObject.registerClass({
             'username': this.username,
             'ATTRIBUTE_UUID': this.attribute_uuid,
         }));
-        
+
         this.session.send_and_read_async(message, 0, cancellable, (_, r) => {
             try {
                 if (message.status_code < 200 || 299 < message.status_code) {
                     task.return_error(GLib.Error.new_literal(
-                                    GLib.quark_from_string('NautaSessionError'), 2, message.get_reason_phrase()));
+                        GLib.quark_from_string('NautaSessionError'), 2, message.get_reason_phrase()));
                     return;
                 }
 
