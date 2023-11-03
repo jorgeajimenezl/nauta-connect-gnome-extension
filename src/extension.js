@@ -57,7 +57,6 @@ class UserMenuItem {
             this._connectionId = null;
         }
         this.item.destroy();
-        // super.destroy();
     }
 }
 
@@ -82,7 +81,7 @@ const NautaMenuToggle = GObject.registerClass(
             });
 
             this.menu.setHeader(icon, _("Nauta Connect"), _("Authenticate in ETECSA network"));
-            this.settings.bind("session-connected", this, "checked", Gio.SettingsBindFlags.GET);
+            this._updateChecked();
 
             // Populate the list of users            
             this.buildMenu();
@@ -97,7 +96,7 @@ const NautaMenuToggle = GObject.registerClass(
                         for (const item of this.items) {
                             if (item.user.username == username) {
                                 console.log(`Trying to login with: ${username}`);
-                                item.login();
+                                item.login().then(this._updateChecked());
                             }
                         }
                     } else {
@@ -107,10 +106,12 @@ const NautaMenuToggle = GObject.registerClass(
                             () => {
                                 Main.notify(_("Session closed successfully"));
                                 this.session.save(this.settings);
+                                this._updateChecked();
                             },
                             (e) => {
                                 console.error(e);
                                 Main.notify(_("Unable to logout from actual session"));
+                                this._updateChecked();
                             }
                         );
                     }
@@ -148,6 +149,10 @@ const NautaMenuToggle = GObject.registerClass(
             }
 
             super.destroy();
+        }
+
+        _updateChecked() {
+            this.checked = this.settings.get_boolean("session-connected");
         }
 
         buildMenu() {
@@ -203,7 +208,7 @@ const NautaIndicator = GObject.registerClass(
             this.add_style_class_name("nauta-indicator");
 
             this.settings = extensionObject.getSettings();
-            this.session = new NautaSession.NautaSession();
+            this.session = new NautaSession.NautaSession.from_settings(this.settings);
             this.quickSettingsItems = [];
 
             this._extensionObject = extensionObject;
@@ -269,10 +274,12 @@ const NautaIndicator = GObject.registerClass(
                     () => {
                         Main.notify(_("Session closed successfully"));
                         this.session.save(this.settings);
+                        this.quickSettingsItems.forEach(item => item._updateChecked());
                     },
                     (e) => {
                         console.error(e);
                         Main.notify(_("Unable to logout from actual session"));
+                        this.quickSettingsItems.forEach(item => item._updateChecked());
                     }
                 );
             }
@@ -295,9 +302,9 @@ const NautaIndicator = GObject.registerClass(
                 // timer update
                 this._refreshTimerConnectionId = GLib.timeout_add_seconds(
                     GLib.PRIORITY_DEFAULT, 1.0, () => {
-                    this.updateTimer();
-                    return true;
-                });
+                        this.updateTimer();
+                        return true;
+                    });
             }
         }
 
