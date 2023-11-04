@@ -405,7 +405,7 @@ const NautaIndicator = GObject.registerClass(
 
 export default class NautaConnectExtension extends Extension {
     enable() {
-        ETECSA_ICON = Gio.icon_new_for_string(this.path + '/icons/etecsa-logo.svg');
+        ETECSA_ICON = Gio.icon_new_for_string(this.path + '/icons/etecsa-symbolic.svg');
         this._indicator = new NautaIndicator(this);
     }
 

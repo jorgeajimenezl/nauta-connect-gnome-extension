@@ -7,5 +7,5 @@
   ],
   "url": "https://github.com/jorgeajimenezl/nauta-connect-gnome-extension",
   "settings-schema": "org.gnome.shell.extensions.nauta-connect",
-  "version": 7
+  "version": 10
 }
