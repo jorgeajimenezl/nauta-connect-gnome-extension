@@ -1,0 +1,27 @@
+using Gtk 4.0;
+using Adw 1;
+
+template Accounts : Adw.PreferencesPage {
+    title: _("Accounts");
+    icon-name: "system-users-symbolic";
+
+    Adw.PreferencesGroup {
+        title: "Account Preferences";
+        // description: _("Manage the nauta users");
+
+        [header-suffix]
+        Button {
+            valign: center;
+            clicked => onAddAccount();
+            
+            Adw.ButtonContent {
+                icon-name: "list-add-symbolic";
+                label: "Add";
+            }
+        }
+
+        ListBox accountList {
+            styles ["boxed-list"]         
+        }
+    }
+}

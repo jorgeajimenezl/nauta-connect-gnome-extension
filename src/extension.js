@@ -18,6 +18,12 @@ import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/
 let _notifSource = null;
 let ETECSA_ICON = null;
 
+const TimeInfoType = Object.freeze({
+    REMAINED: 0,
+    ELAPSED: 1,
+    NONE: 3,
+});
+
 function formatTimeString(seconds) {
     return "%02d:%02d:%02d".format(
         seconds / 3600,
@@ -103,7 +109,7 @@ class UserMenuItem {
     }
 
     destroy() {
-        if (this._connectionId != null) {
+        if (this._connectionId !== null) {
             this.item.disconnect(this._connectionId);
             this._connectionId = null;
         }
@@ -143,7 +149,7 @@ const NautaMenuToggle = GObject.registerClass(
 
                     if (!connected) {
                         for (const item of this.items) {
-                            if (item.user.username == username) {
+                            if (item.user.username === username) {
                                 console.log(`Trying to login with: ${username}`);
                                 item.login();
                             }
@@ -183,12 +189,12 @@ const NautaMenuToggle = GObject.registerClass(
         }        
 
         destroy() {
-            if (this._changedUserConnectionId != null) {
+            if (this._changedUserConnectionId !== null) {
                 this.settings.disconnect(this._changedUserConnectionId);
                 this._changedUserConnectionId = null;
             }
 
-            if (this._clickedConnectionId != null) {
+            if (this._clickedConnectionId !== null) {
                 this.disconnect(this._clickedConnectionId);
                 this._clickedConnectionId = null;
             }
@@ -350,8 +356,8 @@ const NautaIndicator = GObject.registerClass(
                 this._totalTime = null;
             }
 
-            const info = this.settings.get_string("time-info");
-            if (info != "none") {
+            const info = this.settings.get_int("time-info-type");
+            if (info !== TimeInfoType.NONE) {
                 // timer update
                 this._refreshTimerConnectionId = GLib.timeout_add_seconds(
                     GLib.PRIORITY_DEFAULT, 1.0, () => {
@@ -371,12 +377,12 @@ const NautaIndicator = GObject.registerClass(
                 // this.add_style_class_name("box-error");
             }
 
-            const info = this.settings.get_string("time-info");
+            const info = this.settings.get_int("time-info-type");
 
-            if (info === "remain" && this._totalTime == null) {
+            if (info === TimeInfoType.REMAINED && this._totalTime === null) {
                 this._label.text = "No Available :(";
             } else {
-                if (info === "remain")
+                if (info === TimeInfoType.REMAINED)
                     seconds = this._totalTime - seconds;
 
                 this._label.text = formatTimeString(seconds);
@@ -386,7 +392,7 @@ const NautaIndicator = GObject.registerClass(
         destroy() {
             this.quickSettingsItems.forEach(item => item.destroy());
 
-            if (this._connectedConnectionId != null) {
+            if (this._connectedConnectionId !== null) {
                 this.settings.disconnect(this._connectedConnectionId);
                 this._connectedConnectionId = null;
             }
@@ -395,7 +401,7 @@ const NautaIndicator = GObject.registerClass(
         }
 
         destroyTimer() {
-            if (this._refreshTimerConnectionId != null) {
+            if (this._refreshTimerConnectionId !== null) {
                 GLib.source_remove(this._refreshTimerConnectionId);
                 this._refreshTimerConnectionId = null;
             }

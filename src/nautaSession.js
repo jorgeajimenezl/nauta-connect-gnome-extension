@@ -10,7 +10,7 @@ Gio._promisify(Soup.Session.prototype, "send_and_read_async", "send_and_read_fin
 
 export default class NautaSession {
     constructor(state = null) {
-        this.state = state == null ? {
+        this.state = state ===null ? {
             csrfhw: null,
             wlanuserip: null,
             login_url: null,
@@ -74,11 +74,11 @@ export default class NautaSession {
     }
 
     get is_connected() {
-        return this.state.auth != null;
+        return this.state.auth !== null;
     }
 
     get is_valid_session() {
-        return this.state.csrfhw != null;
+        return this.state.csrfhw !== null;
     }
 
     async _send_request(base, path, form) {
@@ -138,7 +138,7 @@ export default class NautaSession {
             if (len >= 0) {
                 let script = scripts.item(len - 1).to_string();
                 let m = script.match("alert\(\"([^\"]*?)\"\)");
-                if (m == null)
+                if (m === null)
                     throw new Error("Unknown Error");
                 else
                     throw new Error(`Nauta Error (reason: ${m[1]})`);
