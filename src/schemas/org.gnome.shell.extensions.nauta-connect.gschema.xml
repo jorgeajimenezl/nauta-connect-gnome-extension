@@ -17,13 +17,19 @@
     <key name="session-connected" type="b">
         <default>false</default>
     </key>
+    <key name="session-login-url" type="s">
+        <default>""</default>
+    </key>
 
     <!-- Extension Settings -->
-    <key name="time-info" type="s">
-        <default>"elapsed"</default>
+    <key name="time-info-type" type="i">
+        <default>0</default>
     </key>
-    <key name="notifications-limits" type="b">
+    <key name="notify-limits" type="b">
         <default>true</default>
+    </key>
+    <key name="current-username" type="s">
+        <default>""</default>
     </key>
   </schema>
 </schemalist>

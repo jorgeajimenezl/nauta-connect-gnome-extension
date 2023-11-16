@@ -1,0 +1,39 @@
+using Gtk 4.0;
+using Adw 1;
+
+template AccountItem : Adw.ActionRow {
+    activatable: true;
+    activated => edit();
+
+    [prefix]
+    Box {
+        Adw.Avatar {
+            text: bind AccountItem.title;
+            show-initials: true;
+            size: 30;
+        }
+    }
+    
+    [suffix]
+    Box {
+        orientation: horizontal;
+        valign: center;
+        spacing: 5;
+
+        Button copy_user_btn {
+            icon-name: "system-users-symbolic";
+            styles ["flat"]
+        }
+        
+        Button copy_pass_btn {
+            icon-name: "dialog-password-symbolic";
+            styles ["flat"]
+        }
+
+        Button {
+            icon-name: "edit-delete-symbolic";
+            clicked => delete();
+            styles ["destructive-action"]
+        }
+    }
+}

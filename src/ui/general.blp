@@ -1,0 +1,24 @@
+using Gtk 4.0;
+using Adw 1;
+
+template General : Adw.PreferencesPage {
+    title: _("General");
+    icon-name: "dialog-information-symbolic";
+
+    Adw.PreferencesGroup {
+        title: "Appearance";
+        description: _("Configure the appearance of the extension");
+        
+        Adw.ComboRow tminfo_cmb {
+            title: "Time Information";
+            subtitle: "Type of time information that appears in the indicator";
+            model: StringList {
+              strings [ "Remained", "Elapsed", "None" ]
+            };
+        }
+        Adw.SwitchRow notif_switch {
+            title: "Notifications";
+            subtitle: "Allow to send notification about session state";
+        }
+    }
+}

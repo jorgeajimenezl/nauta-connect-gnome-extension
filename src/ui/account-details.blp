@@ -1,0 +1,66 @@
+using Gtk 4.0;
+using Adw 1;
+
+template AccountDetails : Adw.Window {
+    accessible-role: dialog;
+    resizable: false;
+    modal: true;
+    default-width: 300;
+    
+    Box {
+        orientation: vertical;
+        
+        Adw.HeaderBar {
+            title-widget: Adw.WindowTitle {
+                title: _("Account Details");
+                subtitle: _("Edit the details");
+            };
+            
+            styles ["flat"]
+        }
+        
+        Box {
+            orientation: vertical;
+            margin-top: 10;
+            margin-bottom: 10;
+            margin-start: 10;
+            margin-end: 10;
+            spacing: 20;
+            
+            Adw.Avatar {
+                text: bind AccountDetails.username;
+                show-initials: true;
+                size: 80;
+            }
+            
+            Adw.PreferencesGroup {
+                Adw.EntryRow user_entry {
+                    title: _("Username");
+                    text: bind AccountDetails.username bidirectional;
+                    styles ["error"]
+                }
+                
+                Adw.PasswordEntryRow pass_entry {
+                    title: _("Password");
+                    text: bind AccountDetails.password bidirectional;
+                    styles ["error"]
+                }
+            }
+            
+            Box {
+                orientation: horizontal;
+                homogeneous: true;
+                spacing: 15;
+                
+                Button cancel_btn {
+                    label: _("Cancel");
+                }
+                
+                Button accept_btn {
+                    label: bind AccountDetails.accept-label bidirectional;
+                    styles ["suggested-action", "text-button", "default"]
+                }
+            }
+        }
+    }    
+}
