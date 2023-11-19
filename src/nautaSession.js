@@ -125,9 +125,9 @@ export default class NautaSession {
         let [res, msg] = await this._send_request(
             this.state.login_url,
             "", {
-            "username": username,
-            "password": password,
-        }
+                "username": username,
+                "password": password,
+            }
         );
 
         if (!msg.get_uri().to_string().includes("online.do")) {
@@ -165,9 +165,9 @@ export default class NautaSession {
         let [res, _] = await this._send_request(
             NAUTA_LOGIN_URL,
             "EtecsaQueryServlet", {
-            "username": username,
-            "password": password,
-        }
+                "username": username,
+                "password": password,
+            }
         );
 
         let dom = GXml.XHtmlDocument.from_string(res, 32);
@@ -181,9 +181,9 @@ export default class NautaSession {
 
         let [res, _] = await this._send_request(
             NAUTA_LOGIN_URL,
-            "EtecsaQueryServlet", {
-            "op": "getLeftTime",
-        }
+                "EtecsaQueryServlet", {
+                "op": "getLeftTime",
+            }
         );
 
         let time = res.split(":").map(x => parseInt(x));

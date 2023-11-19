@@ -81,8 +81,7 @@ const AccountDetails = GObject.registerClass({
 
         if (!value.endsWith("@nauta.com.cu") && 
             !value.endsWith("@nauta.co.cu")) {
-            if (!this._user_entry.has_css_class("error"))
-                this._user_entry.add_css_class("error");
+            this._user_entry.add_css_class("error");
         } else {
             this._user_entry.remove_css_class("error");
         }            
@@ -99,8 +98,7 @@ const AccountDetails = GObject.registerClass({
         this.notify("password");
 
         if (value.length === 0) {
-            if (!this._pass_entry.has_css_class("error"))
-                this._pass_entry.add_css_class("error");
+            this._pass_entry.add_css_class("error");
         } else {
             this._pass_entry.remove_css_class("error");
         } 
@@ -216,7 +214,6 @@ const AccountItem = GObject.registerClass({
                 "application": 'org.jorgeajimenezl.nauta-connect'
             }, null, (__, r) => {
                 try {
-                    // TODO: add notification when op fail
                     if (Secret.password_clear_finish(r)) {
                         this.container?.remove(this);
                     } else {
@@ -268,9 +265,7 @@ const AccountItem = GObject.registerClass({
                 }
             }
         );
-    }
-
-    
+    }    
 });
 
 const Accounts = GObject.registerClass({

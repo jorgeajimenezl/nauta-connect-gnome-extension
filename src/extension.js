@@ -24,6 +24,11 @@ const TimeInfoType = Object.freeze({
     NONE: 3,
 });
 
+const SECRET_SEARCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
+    Secret.SchemaFlags.DONT_MATCH_NAME, {
+    "application": Secret.SchemaAttributeType.STRING,
+});
+
 function formatTimeString(seconds) {
     return "%02d:%02d:%02d".format(
         seconds / 3600,
@@ -99,10 +104,15 @@ class UserMenuItem {
         try {
             await this.panel.session.login(this.user.username, this.user.password);
             this.panel.session.save(this.panel.settings);
-            _showNotification(_("Logged successful"), this.user.username);
+            _showNotification(_("Logged successful"), this.user.username, (nt) => {
+                nt.addAction("Ok", () => nt.destroy());
+                nt.addAction("Set timer", () => {
+
+                });
+            });
         } catch (e) {
             _showNotification(_("Unable to login right now"));
-            console.error(e);
+            console.warn(e);
         }
 
         this.panel._updateChecked();
@@ -173,10 +183,8 @@ const NautaMenuToggle = GObject.registerClass(
                 },
             );
 
-            // Connect settings
             this._changedUserConnectionId = this.settings.connect(
                 "changed::current-username", () => {
-                    // Mark current user
                     const username = this.settings.get_string("current-username");
 
                     for (const userItem of this.items) {
@@ -211,41 +219,40 @@ const NautaMenuToggle = GObject.registerClass(
         }
 
         buildMenu() {
-            const schema = Secret.Schema.new("org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials",
-                Secret.SchemaFlags.DONT_MATCH_NAME, {
-                "application": Secret.SchemaAttributeType.STRING,
-            });
-
             const username = this.settings.get_string("current-username");
-            Secret.password_search(schema, {
+            Secret.password_search(SECRET_SEARCH_SCHEMA, {
                 "application": "org.jorgeajimenezl.nauta-connect"
             }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (_, r) => {
-                const x = Secret.password_search_finish(r);
+                try {
+                    const x = Secret.password_search_finish(r);
 
-                for (let i = 0; i < x.length; i++) {
-                    const user = x[i].get_label();
-                    const pass = x[i].retrieve_secret_sync(null).get_text();
-
-                    const item = new UserMenuItem({
-                        username: user,
-                        password: pass
-                    }, this);
-
-                    item.item.setOrnament(
-                        (username === user) ? PopupMenu.Ornament.DOT
-                            : PopupMenu.Ornament.NONE);
-
-                    this.items.push(item);
-                    this.menu.addMenuItem(item.item);
-                }
-
-                // Setup setting
-                // FIX: Need to push this code here coz if
-                // not, the order is random (async)
-                this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
-                const settingsItem = this.menu.addAction("Settings", () => this._extensionObject.openPreferences());
-                settingsItem.visible = Main.sessionMode.allowSettings;
-                this.menu._settingsActions[this._extensionObject.uuid] = settingsItem;
+                    for (let i = 0; i < x.length; i++) {
+                        const user = x[i].get_label();
+                        const pass = x[i].retrieve_secret_sync(null).get_text();
+    
+                        const item = new UserMenuItem({
+                            username: user,
+                            password: pass
+                        }, this);
+    
+                        item.item.setOrnament(
+                            (username === user) ? PopupMenu.Ornament.DOT
+                                : PopupMenu.Ornament.NONE);
+    
+                        this.items.push(item);
+                        this.menu.addMenuItem(item.item);
+                    }
+    
+                    // Setup setting
+                    // FIX: Need to push this code here coz if
+                    // not, the order is random (async)
+                    this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+                    const settingsItem = this.menu.addAction("Settings", () => this._extensionObject.openPreferences());
+                    settingsItem.visible = Main.sessionMode.allowSettings;
+                    this.menu._settingsActions[this._extensionObject.uuid] = settingsItem;
+                } catch (e) {
+                    console.warn(e);
+                }                
             });
         }
     }
@@ -358,7 +365,6 @@ const NautaIndicator = GObject.registerClass(
 
             const info = this.settings.get_int("time-info-type");
             if (info !== TimeInfoType.NONE) {
-                // timer update
                 this._refreshTimerConnectionId = GLib.timeout_add_seconds(
                     GLib.PRIORITY_DEFAULT, 1.0, () => {
                         this.updateTimer();
@@ -371,20 +377,16 @@ const NautaIndicator = GObject.registerClass(
             let seconds = Math.max((GLib.get_monotonic_time() - this._startTime) / (1000 * 1000), 0);
 
             if (seconds <= 0 && !this._notified) {
-                // Notify limits
                 _showNotification("The connection time has finished");
                 this._notified = true;
-                // this.add_style_class_name("box-error");
             }
 
             const info = this.settings.get_int("time-info-type");
-
             if (info === TimeInfoType.REMAINED && this._totalTime === null) {
                 this._label.text = "No Available :(";
             } else {
                 if (info === TimeInfoType.REMAINED)
                     seconds = this._totalTime - seconds;
-
                 this._label.text = formatTimeString(seconds);
             }
         }
