@@ -49,7 +49,7 @@ export default class NautaSession {
             settings.set_string("session-attribute-uuid", "");
         }
     }
-    
+
     async build_session() {
         let res = await this.session.send_and_read_async(
             Soup.Message.new("GET", NAUTA_LOGIN_URL),
@@ -78,7 +78,7 @@ export default class NautaSession {
     }
 
     get is_valid_session() {
-        return this.state.csrfhw !== null;
+        return this.state.csrfhw !== null && this.state.csrfhw !== "";
     }
 
     async _send_request(base, path, form) {

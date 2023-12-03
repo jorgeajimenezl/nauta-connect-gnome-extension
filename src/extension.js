@@ -24,11 +24,6 @@ const TimeInfoType = Object.freeze({
     NONE: 3,
 });
 
-const SECRET_SEARCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
-    Secret.SchemaFlags.DONT_MATCH_NAME, {
-    "application": Secret.SchemaAttributeType.STRING,
-});
-
 function formatTimeString(seconds) {
     return "%02d:%02d:%02d".format(
         seconds / 3600,
@@ -106,7 +101,7 @@ class UserMenuItem {
             this.panel.session.save(this.panel.settings);
             _showNotification(_("Logged successful"), this.user.username, (nt) => {
                 nt.addAction("Ok", () => nt.destroy());
-                nt.addAction("Set timer", () => {
+                nt.addAction("Timer", () => {
 
                 });
             });
@@ -219,6 +214,11 @@ const NautaMenuToggle = GObject.registerClass(
         }
 
         buildMenu() {
+            const SECRET_SEARCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
+                Secret.SchemaFlags.DONT_MATCH_NAME, {
+                "application": Secret.SchemaAttributeType.STRING,
+            });
+            
             const username = this.settings.get_string("current-username");
             Secret.password_search(SECRET_SEARCH_SCHEMA, {
                 "application": "org.jorgeajimenezl.nauta-connect"
@@ -420,5 +420,6 @@ export default class NautaConnectExtension extends Extension {
     disable() {
         this._indicator.destroy();
         this._indicator = null;
+        ETECSA_ICON = null;
     }
 }

@@ -1,1 +1,5 @@
-src/types
+@types/
+node_modules/
+tests/
+src/ui/*.ui
+.vscode/

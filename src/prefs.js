@@ -1,23 +1,10 @@
 import Adw from 'gi://Adw';
 import GObject from 'gi://GObject';
-import Gtk from 'gi://Gtk';
 import GLib from 'gi://GLib';
 import Secret from 'gi://Secret';
 import Gio from 'gi://Gio';
 
 import { ExtensionPreferences, gettext as _ } from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
-
-const SECRET_MATCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.NetworkCredentials', 
-    Secret.SchemaFlags.DONT_MATCH_NAME, {
-        "uuid": Secret.SchemaAttributeType.STRING,
-        "application": Secret.SchemaAttributeType.STRING,
-    }
-);
-
-const SECRET_SEARCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
-    Secret.SchemaFlags.DONT_MATCH_NAME, {
-    "application": Secret.SchemaAttributeType.STRING,
-});
 
 Gio._promisify(Adw.MessageDialog.prototype, "choose", "choose_finish");
 
@@ -209,6 +196,13 @@ const AccountItem = GObject.registerClass({
         const res = await dialog.choose(null);
 
         if (res === "delete") {
+            const SECRET_MATCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.NetworkCredentials', 
+                Secret.SchemaFlags.DONT_MATCH_NAME, {
+                    "uuid": Secret.SchemaAttributeType.STRING,
+                    "application": Secret.SchemaAttributeType.STRING,
+                }
+            );
+
             Secret.password_clear(SECRET_MATCH_SCHEMA, {
                 "uuid": this.account.uuid,
                 "application": 'org.jorgeajimenezl.nauta-connect'
@@ -236,6 +230,13 @@ const AccountItem = GObject.registerClass({
     }
 
     save() {
+        const SECRET_MATCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.NetworkCredentials', 
+            Secret.SchemaFlags.DONT_MATCH_NAME, {
+                "uuid": Secret.SchemaAttributeType.STRING,
+                "application": Secret.SchemaAttributeType.STRING,
+            }
+        );
+
         Secret.password_store(
             SECRET_MATCH_SCHEMA, 
             {
@@ -277,16 +278,15 @@ const Accounts = GObject.registerClass({
         super._init(params);
 
         this.window = window;
-
-        // this._accountList.append(new AccountItem(this._accountList, window, {
-        //     username: "jorge@nauta.com.cu",
-        //     password: "12345678",
-        //     uuid: GLib.uuid_string_random(),
-        // }));
         this.populateList();
     }
 
     populateList() {
+        const SECRET_SEARCH_SCHEMA = Secret.Schema.new('org.jorgeajimenezl.nauta-connect.SearchNetworkCredentials',
+            Secret.SchemaFlags.DONT_MATCH_NAME, {
+            "application": Secret.SchemaAttributeType.STRING,
+        });
+
         Secret.password_search(SECRET_SEARCH_SCHEMA, {
             "application": 'org.jorgeajimenezl.nauta-connect'
         }, Secret.SearchFlags.ALL | Secret.SearchFlags.UNLOCK | Secret.SearchFlags.LOAD_SECRETS, null, (__, r) => {
@@ -351,7 +351,7 @@ const General = GObject.registerClass({
     }
 });
 
-export default class ExamplePreferences extends ExtensionPreferences {
+export default class NautaConnectPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         window._settings = this.getSettings();
 
