@@ -1,7 +1,7 @@
 using Gtk 4.0;
 using Adw 1;
 
-template Accounts : Adw.PreferencesPage {
+template $Accounts : Adw.PreferencesPage {
     title: _("Accounts");
     icon-name: "system-users-symbolic";
 
@@ -12,7 +12,7 @@ template Accounts : Adw.PreferencesPage {
         [header-suffix]
         Button {
             valign: center;
-            clicked => onAddAccount();
+            clicked => $onAddAccount();
             
             Adw.ButtonContent {
                 icon-name: "list-add-symbolic";

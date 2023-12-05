@@ -1,7 +1,7 @@
 using Gtk 4.0;
 using Adw 1;
 
-template AccountDetails : Adw.Window {
+template $AccountDetails : Adw.Window {
     accessible-role: dialog;
     resizable: false;
     modal: true;
@@ -28,7 +28,7 @@ template AccountDetails : Adw.Window {
             spacing: 20;
             
             Adw.Avatar {
-                text: bind AccountDetails.username;
+                text: bind template.username;
                 show-initials: true;
                 size: 80;
             }
@@ -36,13 +36,13 @@ template AccountDetails : Adw.Window {
             Adw.PreferencesGroup {
                 Adw.EntryRow user_entry {
                     title: _("Username");
-                    text: bind AccountDetails.username bidirectional;
+                    text: bind template.username bidirectional;
                     styles ["error"]
                 }
                 
                 Adw.PasswordEntryRow pass_entry {
                     title: _("Password");
-                    text: bind AccountDetails.password bidirectional;
+                    text: bind template.password bidirectional;
                     styles ["error"]
                 }
             }
@@ -57,7 +57,7 @@ template AccountDetails : Adw.Window {
                 }
                 
                 Button accept_btn {
-                    label: bind AccountDetails.accept-label bidirectional;
+                    label: bind template.accept-label bidirectional;
                     styles ["suggested-action", "text-button", "default"]
                 }
             }

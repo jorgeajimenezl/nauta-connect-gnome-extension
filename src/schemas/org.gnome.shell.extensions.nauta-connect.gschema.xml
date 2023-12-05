@@ -31,5 +31,14 @@
     <key name="current-username" type="s">
         <default>""</default>
     </key>
+    <key name="disconnect-on-idle" type="b">
+        <default>false</default>
+    </key>
+    <key name="disconnect-idle-limit" type="i">
+        <default>1000000</default>
+    </key>
+    <key name="disconnect-vpn" type="b">
+        <default>true</default>
+    </key>
   </schema>
 </schemalist>

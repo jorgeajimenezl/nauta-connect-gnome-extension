@@ -341,13 +341,38 @@ const Accounts = GObject.registerClass({
 const General = GObject.registerClass({
     GTypeName: "General",
     Template: GLib.uri_resolve_relative(import.meta.url, "ui/general.ui", GLib.UriFlags.NONE),
-    InternalChildren: ["tminfo_cmb", "notif_switch"]
+    InternalChildren: ["tminfo_cmb"]
 }, class General extends Adw.PreferencesPage {
     _init(window, params = {}) {
         super._init(params);
+        window._settings.bind(
+            "time-info-type", 
+            this._tminfo_cmb, 
+            "selected", 
+            Gio.SettingsBindFlags.DEFAULT
+        );
+    }
+});
 
-        window._settings.bind("time-info-type", this._tminfo_cmb, "selected", Gio.SettingsBindFlags.DEFAULT);
-        window._settings.bind("notify-limits", this._notif_switch, "active", Gio.SettingsBindFlags.DEFAULT);
+const Behaviour = GObject.registerClass({
+    GTypeName: "Behaviour",
+    Template: GLib.uri_resolve_relative(import.meta.url, "ui/behaviour.ui", GLib.UriFlags.NONE),
+    InternalChildren: ["notif_switch", "disconn_vpn_switch"]
+}, class General extends Adw.PreferencesPage {
+    _init(window, params = {}) {
+        super._init(params);
+        window._settings.bind(
+            "notify-limits", 
+            this._notif_switch, 
+            "active", 
+            Gio.SettingsBindFlags.DEFAULT
+        );
+        window._settings.bind(
+            "disconnect-vpn", 
+            this._disconn_vpn_switch, 
+            "active", 
+            Gio.SettingsBindFlags.DEFAULT
+        );
     }
 });
 
@@ -356,6 +381,7 @@ export default class NautaConnectPreferences extends ExtensionPreferences {
         window._settings = this.getSettings();
 
         window.add(new General(window));
+        window.add(new Behaviour(window));
         window.add(new Accounts(window));
 
         window.search_enabled = true;

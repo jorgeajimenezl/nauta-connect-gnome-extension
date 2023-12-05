@@ -1,14 +1,14 @@
 using Gtk 4.0;
 using Adw 1;
 
-template AccountItem : Adw.ActionRow {
+template $AccountItem : Adw.ActionRow {
     activatable: true;
-    activated => edit();
+    activated => $edit();
 
     [prefix]
     Box {
         Adw.Avatar {
-            text: bind AccountItem.title;
+            text: bind template.title;
             show-initials: true;
             size: 30;
         }
@@ -32,7 +32,7 @@ template AccountItem : Adw.ActionRow {
 
         Button {
             icon-name: "edit-delete-symbolic";
-            clicked => delete();
+            clicked => $delete();
             styles ["destructive-action"]
         }
     }

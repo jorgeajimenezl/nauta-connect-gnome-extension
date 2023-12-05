@@ -15,6 +15,11 @@ import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js'
 import NautaSession from './nautaSession.js';
 import { Extension, gettext as _ } from 'resource:///org/gnome/shell/extensions/extension.js';
 
+import NM from 'gi://NM';
+
+// Gio._promisify(NM.Client.prototype, "new_async", "new_finish");
+Gio._promisify(NM.Client.prototype, "deactivate_connection_async", "deactivate_connection_finish");
+
 let _notifSource = null;
 let ETECSA_ICON = null;
 
@@ -30,6 +35,18 @@ function formatTimeString(seconds) {
         (seconds / 60) % 60,
         seconds % 60
     );
+}
+
+async function deactivateAllVpn() {
+    let client = NM.Client.new(null);
+    let res = client.get_active_connections();
+
+    await Promise.all(
+        res.filter(x => x.get_vpn())
+            .map(x => client.deactivate_connection_async(x, null))
+    );
+
+    return res.length >= 1;
 }
 
 const NautaConnectNotificationSource = GObject.registerClass(
@@ -160,20 +177,8 @@ const NautaMenuToggle = GObject.registerClass(
                             }
                         }
                     } else {
-                        // Logout   
-                        console.log(_("Trying to logout"));
-                        this.session.logout().then(
-                            () => {
-                                _showNotification(_("Session closed successfully"));
-                                this.session.save(this.settings);
-                                this._updateChecked();
-                            },
-                            (e) => {
-                                console.error(e);
-                                _showNotification(_("Unable to logout from actual session"));
-                                this._updateChecked();
-                            }
-                        );
+                        // logout
+                        this.logout().catch(e => console.error(e));
                     }
                 },
             );
@@ -189,7 +194,31 @@ const NautaMenuToggle = GObject.registerClass(
                     }
                 },
             );
-        }        
+        }
+        
+        async logout () {
+            console.log(_("Trying to logout"));
+            if (this.settings.get_boolean("disconnect-vpn")) {
+                await deactivateAllVpn().then(
+                    (deactivated) => {
+                        if (deactivated)
+                            new Promise(r => setTimeout(r, 500));
+                    },
+                    (e) => console.warn(`Unable to deactivate all VPNs: ${e}`)
+                );
+            }
+
+            try {
+                await this.session.logout();
+                this.session.save(this.settings);
+                this._updateChecked();
+                _showNotification(_("Session closed successfully"));
+            } catch (e) {
+                console.error(e);               
+                this._updateChecked();
+                _showNotification(_("Unable to logout from actual session"));
+            }
+        }
 
         destroy() {
             if (this._changedUserConnectionId !== null) {
@@ -331,6 +360,16 @@ const NautaIndicator = GObject.registerClass(
         }
 
         async _logout() {
+            if (this.settings.get_boolean("disconnect-vpn")) {
+                await deactivateAllVpn().then(
+                    (deactivated) => {
+                        if (deactivated)
+                            new Promise(r => setTimeout(r, 500));
+                    },
+                    (e) => console.warn(`Unable to deactivate all VPNs: ${e}`)
+                );
+            }
+
             try {
                 await this.session.logout();
                 this.session.save(this.settings);

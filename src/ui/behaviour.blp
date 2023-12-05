@@ -1,0 +1,57 @@
+using Gtk 4.0;
+using Adw 1;
+
+template $Behaviour : Adw.PreferencesPage {
+    title: _("Behaviour");
+    icon-name: "bread-symbolic";
+
+    Adw.PreferencesGroup {
+        title: "Behaviour";
+        
+        Adw.SwitchRow notif_switch {
+            title: "Notifications";
+            subtitle: "Allow to send notification about session state";
+        }        
+        Adw.ExpanderRow {
+            title: "Disconnection on idle";
+            subtitle: "Disconnect the account when the bytes exchanges do not reach some limit";
+            show-enable-switch: true;
+
+            Adw.SpinRow {
+                title: "Limit";
+                subtitle: "Amount of bytes of the limit";
+
+                numeric: true;
+                adjustment: Adjustment {
+                    step-increment: 1000;
+                    lower: 0;
+                    value: 1000000;
+                    upper: 10000000;
+                };
+            }
+        }
+    }
+
+    Adw.PreferencesGroup {
+        title: "VPN";
+
+        Adw.SwitchRow disconn_vpn_switch {
+            title: "Disconnect VPN";
+            subtitle: "Set whether disconnect all the active VPNs in order to make disconnection possible";
+        }
+        Adw.ExpanderRow {
+            title: "Autoconnect";
+            subtitle: "Auto-connect to a VPN when you login";
+            show-enable-switch: true;
+            
+            Adw.ComboRow {
+                title: "Name";
+                subtitle: "Name of the VPN to auto-connect";
+
+                model: StringList {
+                    strings [ "VPN1", "VPN2", "VPN3" ]
+                };
+            }
+        }
+    }
+}
